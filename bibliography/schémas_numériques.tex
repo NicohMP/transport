@@ -1,0 +1,1772 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage[a4paper,margin=2.7cm]{geometry}
+\usepackage{microtype}
+\usepackage{newtxtext,newtxmath}
+\usepackage{setspace}
+\usepackage{booktabs} 
+\usepackage[ backend=biber, style=numeric, sorting=nyt ]{biblatex} 
+\addbibresource{biblio.bib}
+\onehalfspacing
+\allowdisplaybreaks
+
+\newtheorem{theorem}{Théorème}[section] 
+\newtheorem{definition}[theorem]{Définition} 
+\newtheorem{proposition}[theorem]{Proposition} 
+\newtheorem{propriete}[theorem]{Proppriété} 
+\newtheorem{lemma}[theorem]{Lemme}
+\newtheorem{corollary}[theorem]{Corollaire}
+\newtheorem{remark}[theorem]{Remarque}
+\newcommand{\keff}{k_{\mathrm{eff}}}
+\usepackage[hidelinks]{hyperref}
+\setcounter{tocdepth}{2}
+
+\title{Reacteur v2 - Schémas numériques}
+\author{Nicolas Houbouyan}
+\date{August 2026}
+
+\begin{document}
+
+\maketitle
+
+
+\section{Introduction}
+On s'appuie dans ce document sur toute l'étude menée jusqu'ici pour développer les schémas de résolution numérique des équation de transport, diffusion et criticité dans notre cadre d'étude de plaque infinie monocinétique à collisions isotropes. \\
+Récapitulons les six problèmes principaux en question
+
+\bigskip 
+\bigskip 
+\bigskip 
+
+\begin{table}[h]  \renewcommand{\arraystretch}{1.4} \begin{tabular}{p{0.45\textwidth}p{0.45\textwidth}} \toprule \textbf{Problèmes stationnaires} & \textbf{Problèmes instationnaires} \\ \midrule Transport : \[ \mu\partial_x\psi+\Sigma_t\psi = \frac{\Sigma_s}{2}\phi+Q \] & Transport : \[ \frac1v\partial_t\psi +\mu\partial_x\psi+\Sigma_t\psi = \frac{\Sigma_s}{2}\phi+Q \] \\ Diffusion : \[ -\partial_x(D\partial_x\phi) +\Sigma_a\phi=S \] & Diffusion : \[ \frac1v\partial_t\phi -\partial_x(D\partial_x\phi) +\Sigma_a\phi=S \] \\ Criticité : \[ -\partial_x(D\partial_xu) +\Sigma_a u = \frac1k\nu\Sigma_f u \] & Modes temporels : \[ \phi(t,x) = \sum_n A_n(0)e^{-\lambda_n t}\varphi_n(x) \] \\ \bottomrule \end{tabular} \end{table}
+
+\newpage
+
+\tableofcontents
+
+\section {Discrétisation du domaine}
+\label{subsec:discretisation-domaine}
+
+L'équation de transport est posée sur l'espace des phases
+\[
+    \Omega\times[-1,1],
+    \qquad
+    \Omega=[-L,L],
+\]
+où la variable $x$ représente la position dans la plaque et
+$\mu\in[-1,1]$ le cosinus de l'angle entre la direction de propagation
+du neutron et l'axe de la plaque. La discrétisation porte donc à la fois
+sur la variable spatiale $x$ et sur la variable angulaire $\mu$.
+
+\subsection {Maillage spatial}
+
+On introduit une famille de points
+\[
+    -L=x_{\frac12}
+    <x_{\frac32}
+    <\cdots
+    <x_{N+\frac12}=L,
+\]
+qui définissent une partition du domaine en $N$ cellules
+\[
+    K_i=
+    \left(x_{i-\frac12},x_{i+\frac12}\right),
+    \qquad 1\leq i\leq N.
+\]
+On note
+\[
+    h_i=x_{i+\frac12}-x_{i-\frac12},
+    \qquad
+    x_i=\frac{x_{i-\frac12}+x_{i+\frac12}}{2},
+\]
+respectivement la largeur et le centre de la cellule $K_i$. La taille
+caractéristique du maillage est définie par
+\[
+    h=\max_{1\leq i\leq N}h_i.
+\]
+
+Dans le cas particulier d'un maillage uniforme, on a
+\[
+    h_i=h=\frac{2L}{N},
+    \qquad
+    x_{i+\frac12}=-L+ih,
+    \qquad
+    x_i=-L+\left(i-\frac12\right)h.
+\]
+
+Dans la géométrie cœur-réflecteur, les coefficients physiques sont discontinus aux interfaces $x=-a$ et $x=a$. Afin de représenter exactement cette discontinuité, on choisit le maillage de sorte que ces deux interfaces coïncident avec des faces de cellules. On définit alors les ensembles d'indices
+\[
+    \mathcal{I}_c
+    =
+    \left\{i\,;\,K_i\subset[-a,a]\right\},
+    \qquad
+    \mathcal{I}_r
+    =
+    \left\{i\,;\,K_i\subset[-L,-a]\cup[a,L]\right\}.
+\]
+Chaque cellule appartient ainsi entièrement au cœur ou au réflecteur. Ce choix évite de moyenner artificiellement les propriétés de deux matériaux distincts dans une même cellule.
+
+Les coefficients physiques sont approchés par des fonctions constantes par cellule. Pour toute section efficace $\Sigma_\alpha$, avec $\alpha\in\{t,s,a,f\}$, on pose
+\[
+    \Sigma_{\alpha,i} = \frac{1}{h_i} \int_{K_i}\Sigma_\alpha(x)\,\mathrm{d}x.
+\]
+Lorsque les coefficients sont constants par matériau et que les interfaces sont alignées avec le maillage, cette projection est exacte.
+
+De même, le coefficient de diffusion est représenté par
+\[
+    D_i = \frac{1}{h_i} \int_{K_i}D(x)\,\mathrm{d}x.
+\]
+La définition des coefficients de diffusion aux faces $D_{i+\frac12}$ sera précisée lors de la construction du schéma conservatif de diffusion.
+
+\subsection {Discrétisation angulaire} 
+
+La variable angulaire $\mu\in[-1,1]$ intervient dans l'équation de transport à travers les termes de convection ainsi que la moyenne angulaire 
+\[
+P\psi = \frac12\int_{-1}^{1}\psi(\mu)\,d\mu. 
+\] 
+
+La discrétisation du problème nécessite donc l'approximation des intégrales sur l'intervalle $[-1,1]$. Pour cela, on introduit une quadrature composée de $M$ directions discrètes 
+\[ 
+\mu_m\in[-1,1], \qquad 1\le m\le M, 
+\] 
+et de poids associés $(w_m)_{1\le m\le M}$, de sorte que 
+\[
+\int_{-1}^{1} g(\mu)\,d\mu \simeq \sum_{m=1}^{M} w_m g(\mu_m). 
+\] 
+
+\begin{definition}[Ordre d'exactitude] 
+    L'ordre d'exactitude d'une quadrature est le plus grand entier $r$ tel que 
+    \[
+    \sum_{m=1}^{M} w_m p(\mu_m) = \int_{-1}^{1} p(\mu)\,d\mu 
+    \] 
+    pour tout polynôme $p$ de degré inférieur ou égal à $r$. 
+\end{definition} 
+
+\begin{remark} La direction $\mu=0$ correspond à une particule se propageant parallèlement aux faces du domaine. Comme cette direction n'atteint jamais les frontières spatiales, elle nécessite un traitement particulier dans la formulation du problème aux limites. On privilégie donc des quadratures ne contenant pas le point $\mu=0$. 
+\end{remark} 
+
+Afin d'obtenir une approximation précise de la moyenne angulaire avec un nombre limité de directions, on utilise la quadrature de Gauss--Legendre. 
+
+\begin{definition}[Quadrature de Gauss--Legendre] 
+    La quadrature de Gauss--Legendre à $M$ points est définie par : 
+    \begin{itemize} 
+        \item les directions discrètes $\mu_m$, choisies comme les racines du polynôme de Legendre $L_M$ ; 
+        \item les poids positifs $w_m$ associés à cette famille de points. 
+    \end{itemize} 
+\end{definition} 
+
+Cette quadrature possède une propriété fondamentale. 
+
+\begin{proposition}[Exactitude de Gauss--Legendre] 
+    La quadrature de Gauss--Legendre à $M$ points est exacte pour tout polynôme de degré inférieur ou égal à $2M-1$. \end{proposition} 
+    
+Cette propriété en fait une quadrature particulièrement adaptée aux méthodes d'ordonnées discrètes. Dans la suite, on choisit un nombre pair de directions $M=2K$. Les symétries des polynômes de Legendre assurent alors 
+\[ 
+\mu_{M+1-m}=-\mu_m, \qquad w_{M+1-m}=w_m, \qquad \sum_{m=1}^{M} w_m =2. 
+\] 
+En particulier, aucune direction ne coïncide avec $\mu=0$ et les directions positives et négatives sont représentées de manière équilibrée. Cette symétrie permettra de résoudre l'équation de transport par balayage amont : les directions $\mu_m>0$ seront traitées de gauche à droite tandis que les directions $\mu_m<0$ seront traitées de droite à gauche.
+
+\subsection {Inconnues discrètes}
+
+Pour chaque cellule $K_i$ et chaque direction $\mu_m$, on introduit
+l'approximation
+\[
+    \psi_{i,m}(t)
+    \simeq
+    \frac{1}{h_i}
+    \int_{K_i}\psi(t,x,\mu_m)\,\mathrm{d}x.
+\]
+L'ensemble des inconnues angulaires est regroupé dans le vecteur
+\[
+    \Psi(t)
+    =
+    \left(\psi_{i,m}(t)\right)_{
+        \substack{1\leq i\leq N\\1\leq m\leq M}
+    }
+    \in\mathbb{R}^{NM}.
+\]
+
+Le flux scalaire et le courant neutronique sont alors approchés dans
+chaque cellule par
+\begin{equation}
+    \phi_i(t) = \sum_{m=1}^{M}w_m\psi_{i,m}(t),
+    \qquad
+    J_i(t) = \sum_{m=1}^{M}w_m\mu_m\psi_{i,m}(t).
+    \label{eq:moments-discrets}
+\end{equation}
+La relation
+\[
+    \sum_{m=1}^{M}w_m=2
+\]
+garantit en particulier que la quadrature conserve exactement les fonctions isotropes.
+
+Le terme source est également moyenné sur chaque cellule :
+\[
+    q_{i,m}(t)
+    =
+    \frac{1}{h_i}
+    \int_{K_i}q(t,x,\mu_m)\,\mathrm{d}x.
+\]
+Dans le cas d'une diffusion et d'une production par fission isotropes,la source de collision discrète s'écrira donc sous la forme
+\[
+    \frac{\Sigma_{s,i}}{2}\phi_i
+    + \frac{\nu\Sigma_{f,i}}{2k}\phi_i + q_{i,m}.
+\]
+
+\subsection {Conditions aux limites entrantes}
+
+L'équation de transport étant du premier ordre en espace, une condition aux limites doit être imposée uniquement sur le bord entrant. Pour une direction telle que $\mu_m>0$, les neutrons entrent dans le domaine par le bord gauche $x=-L$. Inversement, pour $\mu_m<0$, ils entrent par le bord droit $x=L$. Les données entrantes discrètes sont donc
+\[
+    \psi_{\frac12,m}(t) = \psi_{\mathrm{in}}^{-}(t,\mu_m),  \qquad \mu_m>0,
+\]
+et
+\[
+    \psi_{N+\frac12,m}(t) = \psi_{\mathrm{in}}^{+}(t,\mu_m), \qquad \mu_m<0.
+\]
+Dans le cas de conditions de vide, aucune particule ne pénètre dans le réacteur et l'on impose
+\[
+    \psi_{\frac12,m}(t)=0 \quad  \text{pour }\mu_m>0,
+    \qquad
+    \psi_{N+\frac12,m}(t)=0 \quad\text{pour }\mu_m<0.
+\]
+
+Pour les problèmes instationnaires, on complète cette discrétisation par une grille temporelle
+\[
+    t^n=n\Delta t, \qquad  n\in\mathbb{N},
+\]
+et l'on note
+\[
+    \psi_{i,m}^n\simeq\psi_{i,m}(t^n), \qquad  \phi_i^n=\sum_{m=1}^{M}w_m\psi_{i,m}^n.
+\]
+Le choix du schéma temporel sera effectué séparément, afin de distinguer clairement les erreurs de discrétisation spatiale, angulaire et temporelle.
+
+Cette construction fournit ainsi les variables communes aux différents solveurs développés par la suite. Le même maillage spatial pourra être utilisé pour l'équation de diffusion, tandis que les directions
+$(\mu_m,w_m)$ seront propres au solveur de transport. La discrétisation de l'opérateur $\mu\partial_x$ devra enfin respecter le sens de propagation associé au signe de $\mu_m$, ce qui conduira naturellement au schéma décentré amont étudié dans la section suivante.
+
+
+\section {Schéma de diffusion}
+\label{subsec:schema-diffusion}
+
+Avant de discrétiser directement l'équation de transport, on considère l'équation de diffusion comme un premier modèle numérique. Elle permet de valider le maillage, le traitement des interfaces matérielles et la résolution des systèmes linéaires qui seront ensuite réutilisés dans le solveur de transport.
+
+On considère le problème stationnaire
+\begin{equation}
+    -\partial_x\!\left(D(x)\partial_x\phi(x)\right) +\Sigma_a(x)\phi(x)
+    =S(x), \qquad x\in\Omega.
+    \label{eq:diffusion-stationnaire-numerique}
+\end{equation}
+
+En introduisant le courant de diffusion
+\begin{equation}
+    J(x)=-D(x)\partial_x\phi(x),
+    \label{eq:courant-diffusion}
+\end{equation}
+l'équation \eqref{eq:diffusion-stationnaire-numerique} prend la forme
+conservative
+\begin{equation}
+    \partial_xJ+\Sigma_a\phi=S.
+    \label{eq:diffusion-conservative}
+\end{equation}
+
+\subsection {Bilan sur une cellule}
+
+On intègre \eqref{eq:diffusion-conservative} sur la cellule
+$K_i=(x_{i-\frac12},x_{i+\frac12})$. Il vient
+\begin{equation}
+    J_{i+\frac12}-J_{i-\frac12} +h_i\Sigma_{a,i}\phi_i =h_iS_i,
+    \label{eq:bilan-diffusion-cellule}
+\end{equation}
+où
+\[
+    S_i=\frac{1}{h_i}\int_{K_i}S(x)\,\mathrm{d}x
+\]
+et où $J_{i+\frac12}$ désigne une approximation du courant à la face $x_{i+\frac12}$.
+
+Cette formulation est conservative : le courant sortant d'une cellule est exactement le courant entrant dans la cellule voisine.
+
+\subsection {Approximation du courant aux faces}
+
+Pour une face intérieure $x_{i+\frac12}$, on introduit les distances
+\[
+    \delta_i^+=x_{i+\frac12}-x_i,  \qquad   \delta_{i+1}^-=x_{i+1}-x_{i+\frac12}.
+\]
+La transmissibilité de la face est définie par
+\begin{equation}
+    \tau_{i+\frac12}
+    =
+    \left(
+        \frac{\delta_i^+}{D_i}
+        +
+        \frac{\delta_{i+1}^-}{D_{i+1}}
+    \right)^{-1}.
+    \label{eq:transmissibilite}
+\end{equation}
+Le courant numérique est alors donné par
+\begin{equation}
+    J_{i+\frac12} = -\tau_{i+\frac12}  \left(\phi_{i+1}-\phi_i\right).
+    \label{eq:courant-numerique}
+\end{equation}
+
+Dans le cas d'un maillage uniforme de pas $h$, cette expression devient
+\[
+    J_{i+\frac12} = -D_{i+\frac12} \frac{\phi_{i+1}-\phi_i}{h},
+\]
+avec
+\begin{equation}
+    D_{i+\frac12} = \frac{2D_iD_{i+1}}{D_i+D_{i+1}}.
+    \label{eq:moyenne-harmonique}
+\end{equation}
+Le coefficient de diffusion à la face est donc obtenu par une moyenne
+harmonique.
+
+Ce choix est particulièrement important à l'interface cœur-réflecteur, où $D$ est discontinu. Il traduit la continuité du courant
+\[
+    D_c\partial_x\phi_c = D_r\partial_x\phi_r
+\]
+sans imposer artificiellement la continuité du gradient du flux.
+
+\subsection {Schéma stationnaire}
+
+En reportant \eqref{eq:courant-numerique} dans \eqref{eq:bilan-diffusion-cellule}, on obtient, pour une cellule intérieure $2\leq i\leq N-1$,
+\begin{equation}
+    - \tau_{i-\frac12}\phi_{i-1}
+    + \left( \tau_{i-\frac12} +\tau_{i+\frac12} +h_i\Sigma_{a,i}\right)\phi_i
+    - \tau_{i+\frac12}\phi_{i+1}
+    = h_iS_i.
+    \label{eq:schema-diffusion-interieur}
+\end{equation}
+
+Sur un maillage uniforme et dans une région où $D$ est constant, cetterelation se réduit au schéma centré classique
+\[
+    -D_i\frac{\phi_{i+1}-2\phi_i+\phi_{i-1}}{h^2} +\Sigma_{a,i}\phi_i = S_i.
+\]
+
+\subsection {Conditions aux limites}
+
+Dans le modèle considéré, on impose des conditions absorbantes
+\[
+    \phi(-L)=\phi_L, \qquad \phi(L)=\phi_R.
+\]
+Pour un réacteur entouré de vide, on prend ici $\phi_L=\phi_R=0.$
+
+Les transmissibilités entre les centres des cellules de bord et les extrémités du domaine sont
+\[
+    \tau_{\frac12} = \frac{D_1}{x_1+L},
+    \qquad
+    \tau_{N+\frac12} = \frac{D_N}{L-x_N}.
+\]
+Les courants aux frontières s'écrivent
+\[
+    J_{\frac12} = -\tau_{\frac12}(\phi_1-\phi_L),
+    \qquad
+    J_{N+\frac12} = -\tau_{N+\frac12}(\phi_R-\phi_N).
+\]
+
+Les équations dans les cellules de bord sont donc
+\begin{align}
+    \left(
+        \tau_{\frac12}
+        +\tau_{\frac32}
+        +h_1\Sigma_{a,1}
+    \right)\phi_1
+    -\tau_{\frac32}\phi_2
+    &=
+    h_1S_1+\tau_{\frac12}\phi_L,
+    \label{eq:schema-diffusion-bord-gauche}
+    \\
+    -\tau_{N-\frac12}\phi_{N-1}
+    +
+    \left(
+        \tau_{N-\frac12}
+        +\tau_{N+\frac12}
+        +h_N\Sigma_{a,N}
+    \right)\phi_N
+    &=
+    h_NS_N+\tau_{N+\frac12}\phi_R.
+    \label{eq:schema-diffusion-bord-droit}
+\end{align}
+
+Une condition de Robin, par exemple issue d'une condition de Marshak ou d'une longueur d'extrapolation, pourra être intégrée ultérieurement en modifiant uniquement les courants aux deux frontières.
+
+\subsection {Écriture matricielle}
+
+En regroupant les inconnues dans le vecteur  $
+    \Phi_h=
+    \begin{pmatrix}
+        \phi_1&\cdots&\phi_N
+    \end{pmatrix}^{\mathsf T},
+$
+le schéma s'écrit
+\begin{equation}
+    A_h\Phi_h=b_h.
+    \label{eq:systeme-diffusion}
+\end{equation}
+La matrice $A_h$ est tridiagonale, avec
+\[
+    (A_h)_{i,i} = \tau_{i-\frac12} +\tau_{i+\frac12} +h_i\Sigma_{a,i},
+\]
+et
+\[
+    (A_h)_{i,i-1}=-\tau_{i-\frac12}, \qquad  (A_h)_{i,i+1}=-\tau_{i+\frac12}.
+\]
+
+Pour des conditions de Dirichlet homogènes, on obtient
+\begin{align}
+    \Phi_h^{\mathsf T}A_h\Phi_h
+    ={}& \sum_{i=1}^{N-1} \tau_{i+\frac12} (\phi_{i+1}-\phi_i)^2
+    + \sum_{i=1}^{N} h_i\Sigma_{a,i}\phi_i^2 \notag\\
+    &+ \tau_{\frac12}\phi_1^2 + \tau_{N+\frac12}\phi_N^2.
+    \label{eq:energie-discrete-diffusion}
+\end{align}
+Lorsque $D_i>0$ et $\Sigma_{a,i}\geq0$, cette quantité est strictement
+positive pour tout vecteur non nul. La matrice $A_h$ est donc symétrique
+définie positive et le système discret possède une unique solution.
+
+De plus, ses coefficients hors diagonale sont négatifs et ses
+coefficients diagonaux sont positifs. La matrice possède ainsi la
+structure d'une M-matrice. En particulier, si la source et les données
+aux limites sont positives, alors
+\[
+    \phi_i\geq0,
+    \qquad 1\leq i\leq N,
+\]
+ce qui est conforme à l'interprétation physique du flux neutronique.
+
+\subsection {Conservation et consistance}
+
+En sommant \eqref{eq:bilan-diffusion-cellule} sur toutes les cellules, les courants intérieurs se compensent et l'on obtient
+\begin{equation}
+    J_{N+\frac12}-J_{\frac12}
+    + \sum_{i=1}^{N}h_i\Sigma_{a,i}\phi_i
+    = \sum_{i=1}^{N}h_iS_i.
+    \label{eq:bilan-global-discret}
+\end{equation}
+Le schéma vérifie donc un bilan neutronique global exact : la production est équilibrée par l'absorption et les fuites aux frontières.
+
+Lorsque $D$, $\Sigma_a$ et $\phi$ sont suffisamment réguliers, le schéma centré est consistant d'ordre deux en espace sur un maillage uniforme. Aux interfaces matérielles, la moyenne harmonique préserve le bilan et la continuité du courant, même lorsque le coefficient $D$ est discontinu.
+
+\subsection {Extension au problème instationnaire}
+
+Pour l'équation
+\[
+    \frac{1}{v}\partial_t\phi
+    -\partial_x(D\partial_x\phi)
+    +\Sigma_a\phi
+    =S,
+\]
+on introduit la matrice de masse diagonale
+\[
+    M_v = \operatorname{diag} \left( \frac{h_1}{v_1}, \ldots, \frac{h_N}{v_N}\right).
+\]
+Le problème semi-discret s'écrit
+\begin{equation}
+    M_v\frac{\mathrm{d}\Phi_h}{\mathrm{d}t} +A_h\Phi_h = M_hS_h,
+    \qquad
+    M_h=\operatorname{diag}(h_1,\ldots,h_N).
+    \label{eq:diffusion-semi-discrete}
+\end{equation}
+
+Un schéma d'Euler implicite conduit à
+\begin{equation}
+    \left(
+        \frac{M_v}{\Delta t}+A_h
+    \right)\Phi_h^{n+1}
+    =
+    \frac{M_v}{\Delta t}\Phi_h^n
+    +M_hS_h^{n+1}.
+    \label{eq:euler-implicite-diffusion}
+\end{equation}
+Ce schéma est d'ordre un en temps et ne nécessite pas de condition CFL.
+Il constitue donc un premier choix robuste pour un solveur
+instationnaire.
+
+Enfin, la même matrice de diffusion $A_h$ sera utilisée pour le problème de criticité. Le terme de fission sera alors placé au second membre, conduisant à un problème généralisé aux valeurs propres étudié dans la section suivante.
+
+
+\section {Problème de criticité en diffusion}
+\label{subsec:criticite-diffusion-discrete}
+
+On reprend maintenant le problème stationnaire de criticité étudié dans la
+partie~4 :
+\begin{equation}
+    -\partial_x\!\left(D(x)\partial_x\phi(x)\right)
+    +\Sigma_a(x)\phi(x)
+    =
+    \frac{1}{k}\nu\Sigma_f(x)\phi(x),
+    \qquad x\in\Omega.
+    \label{eq:criticite-diffusion-continue}
+\end{equation}
+En appliquant le schéma conservatif construit dans la section précédente,
+on obtient le problème généralisé aux valeurs propres
+\begin{equation}
+    A_h\Phi_h
+    =
+    \frac{1}{k_h}F_h\Phi_h,
+    \label{eq:criticite-diffusion-discrete}
+\end{equation}
+où
+\[
+    \Phi_h=
+    \begin{pmatrix}
+        \phi_1&\cdots&\phi_N
+    \end{pmatrix}^{\mathsf T}
+\]
+désigne le flux scalaire discret. La matrice $A_h$, déjà introduite dans
+la section précédente, représente les phénomènes de diffusion,
+d'absorption et de fuite. La matrice de fission est quant à elle
+diagonale :
+\begin{equation}
+    F_h
+    =
+    \operatorname{diag}
+    \left(
+        h_1\nu\Sigma_{f,1},
+        \ldots,
+        h_N\nu\Sigma_{f,N}
+    \right).
+    \label{eq:matrice-fission}
+\end{equation}
+Ses coefficients sont positifs dans les cellules du cœur et nuls dans
+le réflecteur.
+
+\subsection {Lien avec l'opérateur continu de génération}
+
+Cette écriture permet de retrouver au niveau discret la construction
+effectuée dans la section~4.2.2. On y avait introduit les formes
+bilinéaires
+\[
+    a(u,v)
+    =
+    \int_\Omega D u'v'
+    +
+    \int_\Omega \Sigma_a uv,
+    \qquad
+    b(u,v)
+    =
+    \int_\Omega \nu\Sigma_f uv,
+\]
+puis défini l'opérateur continu de génération $T:V\to V$ par
+\[
+    a(Tu,v)=b(u,v),
+    \qquad \forall v\in V.
+\]
+Le problème continu de criticité devenait alors
+\[
+    Tu=ku.
+\]
+
+On introduit de manière analogue les formes bilinéaires discrètes
+\[
+    a_h(X,Y)=X^{\mathsf T}A_hY,
+    \qquad
+    b_h(X,Y)=X^{\mathsf T}F_hY,
+    \qquad X,Y\in\mathbb{R}^N.
+\]
+L'opérateur discret de génération $T_h:\mathbb{R}^N\to\mathbb{R}^N$
+est défini par
+\begin{equation}
+    a_h(T_hX,Y)=b_h(X,Y),
+    \qquad \forall Y\in\mathbb{R}^N.
+    \label{eq:definition-Th}
+\end{equation}
+Cette relation est équivalente à
+\[
+    A_hT_hX=F_hX.
+\]
+Comme $A_h$ est inversible, on obtient finalement
+\begin{equation}
+    \boxed{T_h=A_h^{-1}F_h.}
+    \label{eq:operateur-generation-discret}
+\end{equation}
+
+L'opérateur $T_h$ constitue donc l'analogue matriciel de l'opérateur
+continu $T$. De même que $T$ associe à une distribution neutronique le
+flux engendré par sa source de fission, $T_h$ associe au flux discret
+$X$ la solution du problème de diffusion dont la source est $F_hX$.
+
+On retrouve également les propriétés spectrales établies dans le cas
+continu. En effet, puisque $A_h$ et $F_h$ sont symétriques,
+\[
+    a_h(T_hX,Y)
+    =
+    b_h(X,Y)
+    =
+    b_h(Y,X)
+    =
+    a_h(X,T_hY).
+\]
+Ainsi, $T_h$ est auto-adjoint pour le produit scalaire $a_h$. De plus,
+\[
+    a_h(T_hX,X)
+    =
+    b_h(X,X)
+    =
+    \sum_{i=1}^{N}
+    h_i\nu\Sigma_{f,i}X_i^2
+    \geq0,
+\]
+donc $T_h$ est positif au sens du produit scalaire $a_h$. Enfin, en
+dimension finie, tout opérateur linéaire est compact. On retrouve ainsi
+les propriétés de l'opérateur continu $T$, mais dans un espace de
+dimension finie.
+
+En multipliant \eqref{eq:criticite-diffusion-discrete} par $A_h^{-1}$,
+le problème discret de criticité devient
+\begin{equation}
+    T_h\Phi_h=k_h\Phi_h.
+    \label{eq:probleme-propre-Th}
+\end{equation}
+Les valeurs admissibles de $k_h$ sont donc les valeurs propres de
+$T_h$, exactement comme les valeurs admissibles de $k$ étaient les
+valeurs propres de $T$ dans le problème continu.
+
+\subsection {Positivité de l'opérateur discret}
+
+Pour interpréter la valeur propre dominante comme un facteur de
+multiplication physique, il reste à montrer que $T_h$ préserve la
+positivité du flux. On utilise pour cela la théorie des M-matrices.
+
+\begin{theorem}[M-matrices irréductibles]
+    Soit $A$ une matrice réelle symétrique définie positive dont les
+    coefficients hors diagonale sont négatifs ou nuls :
+    \[
+        A_{ij}\leq0,
+        \qquad i\neq j.
+    \]
+    Alors $A$ est une M-matrice inversible et
+    \[
+        A^{-1}\geq0
+    \]
+    coefficient par coefficient. Si $A$ est de plus irréductible, alors
+    son inverse est strictement positif :
+    \[
+        (A^{-1})_{ij}>0,
+        \qquad \forall i,j.
+    \]
+\end{theorem}
+
+La relation d'énergie \eqref{eq:energie-discrete-diffusion} a montré que
+$A_h$ est symétrique définie positive. Ses coefficients hors diagonale
+sont
+\[
+    (A_h)_{i,i+1}
+    =
+    (A_h)_{i+1,i}
+    =
+    -\tau_{i+\frac12}<0.
+\]
+Toutes les cellules voisines étant reliées par une transmissibilité
+strictement positive, la matrice $A_h$ est irréductible. Le théorème
+précédent s'applique donc et donne
+\begin{equation}
+    A_h^{-1}>0.
+    \label{eq:inverse-positive}
+\end{equation}
+
+D'autre part, $F_h$ est diagonale à coefficients positifs ou nuls. Pour
+tout vecteur $X\geq0$, on a donc
+\[
+    F_hX\geq0,
+\]
+puis
+\begin{equation}
+    T_hX=A_h^{-1}F_hX\geq0.
+    \label{eq:positivite-Th}
+\end{equation}
+L'opérateur $T_h$ préserve bien le cône des vecteurs positifs. Plus
+précisément, dès que $X$ produit une source de fission non nulle,
+c'est-à-dire lorsque $F_hX\neq0$, la stricte positivité de $A_h^{-1}$
+entraîne
+\begin{equation}
+    T_hX>0.
+    \label{eq:positivite-forte-Th}
+\end{equation}
+Ainsi, une source de fission localisée dans le coeur engendre un flux
+strictement positif dans l'ensemble du coeur et du réflecteur.
+
+La présence du réflecteur introduit toutefois une légère différence
+avec le cas d'une matrice strictement positive : les colonnes de $T_h$
+associées aux cellules non fissiles sont nulles, puisque
+$\Sigma_f=0$ dans ces cellules. Pour appliquer précisément le théorème
+de Perron--Frobenius, on se ramène donc aux cellules fissiles.
+
+Après avoir ordonné les inconnues en plaçant d'abord les cellules du
+coeur, l'opérateur $T_h$ prend la forme
+\[
+    T_h
+    =
+    \begin{pmatrix}
+        B_h & 0\\
+        C_h & 0
+    \end{pmatrix},
+    \qquad
+    B_h=(A_h^{-1})_{cc}F_{h,c},
+\]
+où $F_{h,c}$ désigne la restriction de $F_h$ au coeur. Comme
+$A_h^{-1}>0$ et que les coefficients diagonaux de $F_{h,c}$ sont
+strictement positifs, on a
+\[
+    B_h>0
+\]
+coefficient par coefficient. Les valeurs propres non nulles de $T_h$
+sont exactement celles de $B_h$.
+
+\newpage
+\begin{theorem}[Perron--Frobenius]
+    Soit $B$ une matrice réelle strictement positive. Alors son rayon
+    spectral
+    \[
+        \rho(B)=\max_{\lambda\in\sigma(B)}|\lambda|
+    \]
+    est une valeur propre réelle strictement positive. Cette valeur
+    propre est simple et possède un vecteur propre strictement positif,
+    unique à un facteur multiplicatif près. De plus, toute autre valeur
+    propre $\lambda$ vérifie
+    \[
+        |\lambda|<\rho(B).
+    \]
+\end{theorem}
+
+On peut appliquer ce théorème à la matrice $B_h$. Il existe donc un
+vecteur $\Phi_{h,c}^\star>0$ tel que
+\[
+    B_h\Phi_{h,c}^\star
+    =
+    \rho(B_h)\Phi_{h,c}^\star.
+\]
+La composante du flux dans le réflecteur est ensuite déterminée par le
+bloc inférieur de $T_h$. Elle est elle aussi strictement positive grâce
+à la positivité de $C_h$. On obtient ainsi un vecteur propre
+$\Phi_h^\star>0$ vérifiant
+\[
+    T_h\Phi_h^\star
+    =
+    \rho(T_h)\Phi_h^\star.
+\]
+
+Le facteur de multiplication effectif discret est donc donné par
+\begin{equation}
+    \boxed{
+        k_{\mathrm{eff},h}
+        =
+        \rho(T_h)
+        =
+        \rho(A_h^{-1}F_h).
+    }
+    \label{eq:keff-rayon-spectral}
+\end{equation}
+Le mode propre associé est strictement positif et unique à normalisation près. Ce résultat est l'analogue discret de l'application du théorème de Krein--Rutman à l'opérateur continu $T$ dans la section 4.2.2. Le théorème de Perron--Frobenius joue ici le même rôle que Krein--Rutman, mais dans l'espace de dimension finie
+$\mathbb{R}^N$.
+
+Comme $T_h$ est auto-adjoint pour le produit scalaire $a_h$, on retrouve
+également la caractérisation variationnelle
+\begin{equation}
+    \boxed{
+        k_{\mathrm{eff},h}
+        =
+        \max_{X\in\mathbb{R}^N\setminus\{0\}}
+        \frac{X^{\mathsf T}F_hX}
+             {X^{\mathsf T}A_hX}.
+    }
+    \label{eq:rayleigh-discret}
+\end{equation}
+Cette formule est la version discrète de la caractérisation
+\[
+    \keff = \max_{u\in V\setminus\{0\}} \frac{b(u,u)}{a(u,u)}
+\]
+obtenue pour le problème continu.
+
+\subsection {Itération de puissance}
+
+Le théorème de Perron--Frobenius fournit non seulement l'existence d'un mode fondamental positif, mais suggère également une méthode pour le calculer. On applique pour cela l'itération de puissance à l'opérateur $T_h$.
+
+On introduit la production totale de fission associée à un flux discret
+$X$ :
+\[
+    \mathcal P_h(X)
+    =
+    \sum_{i=1}^{N}
+    h_i\nu\Sigma_{f,i}X_i.
+\]
+On choisit un flux initial $\Phi_h^{(0)}>0$, puis on le normalise de
+sorte que
+\[
+    \mathcal P_h\!\left(\Phi_h^{(0)}\right)=1.
+\]
+
+À partir de $\Phi_h^{(n)}$, l'application de $T_h$ consiste à résoudre
+le problème de diffusion
+\[
+    A_h\widetilde{\Phi}_h^{(n+1)}
+    =
+    F_h\Phi_h^{(n)}.
+\]
+On met ensuite à jour le facteur de multiplication et le flux par
+\begin{equation}
+    \boxed{
+        A_h\widetilde{\Phi}_h^{(n+1)} = F_h\Phi_h^{(n)}, 
+        \qquad
+        k_h^{(n+1)} = \frac{\mathcal P_h\!\left( \widetilde{\Phi}_h^{(n+1)} \right)}
+        {\mathcal P_h\!\left(\Phi_h^{(n)}\right)},
+        \qquad
+        \Phi_h^{(n+1)} = \frac{ \widetilde{\Phi}_h^{(n+1)}}
+        {\mathcal P_h\!\left(\widetilde{\Phi}_h^{(n+1)}\right)}
+    }
+    \label{eq:iteration-puissance-diffusion}
+\end{equation}
+Avec la normalisation choisie, on conserve $\mathcal P_h\!\left(\Phi_h^{(n)}\right)=1$ à chaque itération.
+La stricte domination de la valeur propre de Perron assure alors la convergence
+\[
+    \Phi_h^{(n)} \longrightarrow \Phi_h^\star,
+    \qquad
+    k_h^{(n)} \longrightarrow k_{\mathrm{eff},h},
+\]
+pour tout flux initial strictement positif. La vitesse asymptotique de convergence dépend du rapport entre les deux premières valeurs propres :
+\[
+\left| \frac{k_{2,h}}{k_{\mathrm{eff},h}} \right|.
+\]
+Plus la valeur propre dominante est isolée du reste du spectre, plus l'itération converge rapidement.
+
+En pratique, on contrôle simultanément la variation de $k_h^{(n)}$ et le résidu du problème propre
+\begin{equation}
+    r_h^{(n)} = A_h\Phi_h^{(n)} - \frac{1}{k_h^{(n)}}F_h\Phi_h^{(n)}.
+    \label{eq:residu-criticite}
+\end{equation}
+Le calcul est arrêté lorsque la variation relative de $k_h^{(n)}$ et la norme relative de $r_h^{(n)}$ sont inférieures à une tolérance fixée.
+
+Cette méthode ne demande jamais de former explicitement $A_h^{-1}$. Il suffit de résoudre à chaque itération un système linéaire de matrice $A_h$. Comme cette matrice ne change pas au cours du calcul,
+elle peut être factorisée une seule fois, puis cette factorisation peut être réutilisée pour toutes les générations successives. L'écriture théorique de $T_h=A_h^{-1}F_h$ conduit ainsi directement à l'organisation numérique du futur solveur.
+
+
+\section {Schéma de transport par ordonnées discrètes $S_N$}
+\label{subsec:schema-transport-SN}
+
+On revient maintenant à l'équation stationnaire de transport monocinétique obtenue dans la partie~2 :
+\begin{equation}
+    \mu\partial_x\psi(x,\mu) + \Sigma_t(x)\psi(x,\mu)
+    = \frac{\Sigma_p(x)}{2}\phi(x) + q(x,\mu),
+    \label{eq:transport-stationnaire-continu}
+\end{equation}
+avec
+\[
+    \phi(x) = \int_{-1}^{1}\psi(x,\mu)\,\mathrm{d}\mu,
+    \qquad
+    \Sigma_p=\Sigma_s+\nu\Sigma_f.
+\]
+Le terme $\Sigma_p\phi/2$ rassemble ainsi les neutrons produits isotropiquement par diffusion et par fission.
+
+La dépendance angulaire distingue profondément ce problème du modèle de diffusion : pour chaque direction $\mu$, il faut résoudre une équation différentielle différente, toutes ces équations étant couplées par le flux scalaire $\phi$. La méthode des ordonnées discrètes consiste à remplacer cette famille continue de directions par un nombre fini de directions $\mu_m$. On conserve ici la notation $M$ pour le nombre de directions afin de ne pas la confondre avec le nombre $N$ de cellules spatiales, bien que cette méthode soit traditionnellement appelée méthode $S_N$.
+
+\subsection {Passage aux ordonnées discrètes}
+
+On reprend la quadrature de Gauss--Legendre introduite dans la
+section~5.2 :
+\[
+    \left(\mu_m,w_m\right)_{1\leq m\leq M},
+    \qquad \mu_m\neq0, \qquad w_m>0, \qquad
+    \sum_{m=1}^{M}w_m=2.
+\]
+Pour chaque direction $\mu_m$, on pose $\psi_m(x)=\psi(x,\mu_m).$, et le flux scalaire est alors approché par
+\begin{equation}
+    \boxed{
+        \phi_i = \sum_{m=1}^{M}w_m\psi_{i,m}.
+    }
+    \label{eq:flux-scalaire-SN}
+\end{equation}
+De manière équivalente, la moyenne angulaire discrète est définie par
+\[
+(P_h\Psi)_i = \frac12\sum_{m=1}^{M}w_m\psi_{i,m} = \frac{\phi_i}{2}.
+\]
+La relation $\sum_mw_m=2$ assure que cette approximation est exacte pour un flux isotrope.
+
+En évaluant \eqref{eq:transport-stationnaire-continu} dans chacune des directions discrètes, on obtient le système $S_N$
+\begin{equation}
+    \mu_m\partial_x\psi_m +\Sigma_t\psi_m
+    = \frac{\Sigma_p}{2} \sum_{\ell=1}^{M}w_\ell\psi_\ell +q_m,
+    \qquad 1\leq m\leq M.
+    \label{eq:transport-SN-semi-discret}
+\end{equation}
+L'intégrale angulaire a ainsi disparu, mais les $M$ équations restent couplées par la somme
+\[
+\phi=\sum_{\ell=1}^{M}w_\ell\psi_\ell.
+\]
+
+Cette construction fournit une première approximation du problème continu : lorsque le nombre de directions augmente, la quadrature angulaire devient plus précise, tandis que le problème à résoudre est ramené à un système fini d'équations de transport unidimensionnelles.
+
+\subsection {Choix du schéma spatial}
+
+Pour une direction fixée $\mu_m$, le terme $\mu_m\partial_x\psi_m$ décrit une propagation orientée. La valeur du flux dans une cellule dépend donc des valeurs situées en amont de cette cellule, c'est-à-dire du côté d'où proviennent les neutrons.
+
+On choisit pour cette raison un schéma décentré amont, également appelé \textit{step scheme}. Ce choix est cohérent avec la méthode des caractéristiques utilisée dans la partie 1 : dans les deux cas, la solution est reconstruite en suivant le sens de propagation des particules depuis le bord entrant.
+
+Introduisons, pour alléger les écritures, la source totale dans la
+cellule $K_i$ et la direction $\mu_m$ :
+\begin{equation}
+    S_{i,m}
+    =
+    \frac{\Sigma_{p,i}}{2}\phi_i+q_{i,m}.
+    \label{eq:source-totale-transport}
+\end{equation}
+L'intégration de l'équation de transport sur la cellule
+$K_i=(x_{i-\frac12},x_{i+\frac12})$ donne
+\begin{equation}
+    \mu_m
+    \left( \psi_{i+\frac12,m} - \psi_{i-\frac12,m} \right)
+    + h_i\Sigma_{t,i}\psi_{i,m} 
+    = h_iS_{i,m}.
+    \label{eq:bilan-cellule-transport}
+\end{equation}
+
+Comme pour le schéma de diffusion, cette écriture est conservative : la valeur sortant d'une cellule constitue la valeur entrant dans la cellule suivante. Il reste à relier la valeur moyenne $\psi_{i,m}$ aux valeurs portées par les faces. Le schéma amont identifie la valeur dans la cellule à la valeur sur sa face sortante.
+
+Lorsque $\mu_m>0$, les neutrons se déplacent de la gauche vers la droite. La face $x_{i-\frac12}$ est donc la face entrante et la face $x_{i+\frac12}$ la face sortante. On pose
+\[
+    \psi_{i+\frac12,m}=\psi_{i,m}.
+\]
+L'équation \eqref{eq:bilan-cellule-transport} devient alors
+\[
+\mu_m \left( \psi_{i,m}-\psi_{i-\frac12,m} \right) + h_i\Sigma_{t,i}\psi_{i,m}
+= h_iS_{i,m},
+\]
+d'où
+\begin{equation}
+    \boxed{
+        \psi_{i,m} = \frac{ \mu_m\psi_{i-\frac12,m} + h_iS_{i,m}}
+        {\mu_m+h_i\Sigma_{t,i}},
+        \qquad \mu_m>0.
+    }
+    \label{eq:upwind-positif}
+\end{equation}
+Une fois $\psi_{i,m}$ calculé, il est transmis à la cellule suivante par $\psi_{i+\frac12,m}=\psi_{i,m}.$
+
+Lorsque $\mu_m<0$, les neutrons se déplacent au contraire de la droite vers la gauche. La face entrante est alors $x_{i+\frac12}$ et la face sortante $x_{i-\frac12}$. On pose
+\[
+    \psi_{i-\frac12,m}=\psi_{i,m},
+\]
+et \eqref{eq:bilan-cellule-transport} donne
+\begin{equation}
+\boxed{
+    \psi_{i,m} = \frac{ |\mu_m|\psi_{i+\frac12,m}+ h_iS_{i,m}}
+    {|\mu_m|+h_i\Sigma_{t,i}},
+    \qquad \mu_m<0.
+}
+\label{eq:upwind-negatif}
+\end{equation}
+
+La valeur obtenue est ensuite transmise vers la cellule située à gauche :
+\[
+    \psi_{i-\frac12,m}=\psi_{i,m}.
+\]
+
+Les deux relations peuvent être réunies sous la forme
+\begin{equation}
+\boxed{\psi_{i,m} =
+    \frac{ |\mu_m|\psi_{i,m}^{\mathrm{amont}} + h_iS_{i,m}}
+    {|\mu_m|+h_i\Sigma_{t,i}},}
+\label{eq:upwind-forme-generale}
+\end{equation}
+
+où $\psi_{i,m}^{\mathrm{amont}}$ désigne la valeur du flux sur la face entrante de la cellule $K_i$ pour la direction $\mu_m$.
+
+\subsection {Balayage spatial}
+
+La structure décentrée du schéma permet de calculer successivement les inconnues sans résoudre simultanément un grand système spatial. Pour une source $S_{i,m}$ connue, chaque direction peut être traitée indépendamment des autres.
+
+Pour $\mu_m>0$, la condition aux limites est imposée au bord gauche :
+\[
+    \psi_{\frac12,m} = \psi_{\mathrm{in}}^{-}(\mu_m).
+\]
+On calcule alors successivement
+\[
+    \psi_{1,m}, \psi_{2,m}, \ldots, \psi_{N,m}.
+\]
+
+Le balayage s'effectue donc de la gauche vers la droite :
+\begin{equation}
+    \boxed{\mu_m>0 \quad \Longrightarrow  \quad  i=1,2,\ldots,N.}
+\label{eq:balayage-positif}
+\end{equation}
+
+Pour $\mu_m<0$, la condition entrante est imposée au bord droit :
+\[
+    \psi_{N+\frac12,m} = \psi_{\mathrm{in}}^{+}(\mu_m).
+\]
+Les cellules sont alors parcourues dans l'ordre inverse :
+\[
+    \psi_{N,m}, \psi_{N-1,m}, \ldots, \psi_{1,m}.
+\]
+Le balayage s'effectue donc de la droite vers la gauche :
+\begin{equation}
+    \boxed{
+        \mu_m<0 \quad \Longrightarrow \quad i=N,N-1,\ldots,1.}
+    \label{eq:balayage-negatif}
+\end{equation}
+
+Dans le cas de conditions de vide, les valeurs initialisant les deux
+balayages sont simplement
+\[
+    \psi_{\frac12,m}=0 \quad\text{si }\mu_m>0,
+    \qquad
+    \psi_{N+\frac12,m}=0 \quad\text{si }\mu_m<0.
+\]
+
+Ce procédé constitue le \emph{balayage de transport}. Son ordre de calcul peut être résumé par
+\[
+    \boxed{
+    \begin{array}{ccl}
+        \mu_m>0 &:& -L\longrightarrow L,\\[0.15cm]
+        \mu_m<0 &:& L\longrightarrow -L.
+    \end{array}
+    }
+\]
+Il s'agit de la traduction numérique directe du fait que l'équation de transport est résolue à partir de sa condition au bord entrant.
+
+\subsection {Positivité du balayage}
+
+La préservation de la positivité est une propriété essentielle pour un schéma neutronique, puisque $\psi_{i,m}$ représente une densité de particules.
+
+\begin{proposition}[Positivité du schéma amont]
+    Supposons que
+    \[
+        \Sigma_{t,i}\geq0, \qquad  S_{i,m}\geq0,
+    \]
+    et que les données entrantes soient positives. Alors le balayage décentré amont produit une solution vérifiant
+    \[
+        \psi_{i,m}\geq0,  \qquad  1\leq i\leq N, \quad  1\leq m\leq M.
+    \]
+\end{proposition}
+
+En effet, le dénominateur de \eqref{eq:upwind-forme-generale} est strictement positif puisque $\mu_m\neq0$. Si la valeur entrante dans la cellule et la source sont positives, alors son numérateur est positif et l'on obtient $\psi_{i,m}\geq0$. La propriété se propage ensuite de cellule en cellule dans le sens du balayage.
+
+Comme les poids de quadrature sont positifs, on en déduit également
+\[
+    \phi_i = \sum_{m=1}^{M}w_m\psi_{i,m} \geq 0.
+\]
+Le schéma discret retrouve donc la propriété de positivité établie dans l'étude du problème continu.
+
+\subsection {Couplage par la source et itération sur les sources}
+
+Le balayage précédent suppose que la source $S_{i,m}$ est connue. Or celle-ci dépend du flux scalaire $\phi_i$, lui-même obtenu à partir des solutions angulaires. Le problème complet reste donc couplé.
+
+Ce couplage discret reproduit la formulation intégrale obtenue dans la partie 2 :
+\[
+    \psi = h+\mathcal K\left(\Sigma_pP\psi+q\right).
+\]
+En notant $\mathcal K_h$ l'opérateur de balayage discret avec conditions entrantes homogènes et $H_h$ la contribution des données de bord, le système numérique peut s'écrire
+\begin{equation}
+    \Psi_h = H_h + \mathcal K_h \left(\Sigma_pP_h\Psi_h+Q_h\right).
+    \label{eq:point-fixe-transport-discret}
+\end{equation}
+Cette relation est l'analogue discret exact de la formulation de point fixe du problème continu. Elle conduit elle aussi naturellement à une itération sur les sources.
+
+À partir d'un flux scalaire initial $\Phi_h^{(0)}\geq0$, on construit successivement
+\begin{equation}
+    \boxed{
+    \begin{aligned}
+        S_{i,m}^{(n)} &= \frac{\Sigma_{p,i}}{2}\phi_i^{(n)} +q_{i,m},\\[0.15cm]
+        \Psi_h^{(n+1)} &= \operatorname{Balayage} \left(S_h^{(n)},\Psi_{\mathrm{in}}\right),\\[0.15cm]
+        \phi_i^{(n+1)} &= \sum_{m=1}^{M} w_m\psi_{i,m}^{(n+1)}.
+    \end{aligned}
+    }
+    \label{eq:iteration-sources-transport}
+\end{equation}
+Une itération complète demande donc un balayage de gauche à droite pour toutes les directions positives, puis un balayage de droite à gauche pour toutes les directions négatives.
+
+La convergence de cette procédure est régie par le résultat classique suivant.
+
+\begin{theorem}[Convergence d'une itération linéaire]
+    Soit une suite de vecteurs définie par
+    \[ X^{(n+1)}=GX^{(n)}+C. \]
+    Cette suite converge pour toute donnée initiale vers l'unique point fixe de l'itération si et seulement si
+    \[ \rho(G)<1. \]
+\end{theorem}
+
+Dans notre cas, la matrice d'itération représente l'opérateur
+\[
+    G_h = \mathcal K_h\Sigma_pP_h.
+\]
+L'itération sur les sources converge donc lorsque
+\begin{equation}
+    \rho\!\left( \mathcal K_h\Sigma_pP_h \right)<1.
+    \label{eq:condition-convergence-source-iteration}
+\end{equation}
+Cette condition correspond au caractère sous-critique du problème stationnaire à source. Lorsque le milieu est très diffusant ou proche de la criticité, le rayon spectral se rapproche de $1$ et la convergence peut devenir lente. Cette difficulté motivera par la suite l'introduction de méthodes d'accélération, notamment par diffusion.
+
+Le critère d'arrêt peut être défini à partir de la variation relative du flux scalaire :
+\[
+    \frac{ \left\| \Phi_h^{(n+1)}-\Phi_h^{(n)} \right\|_2}
+    {\left\|\Phi_h^{(n+1)}\right\|_2}
+    < \varepsilon_{\mathrm{tol}},
+\]
+complétée par le contrôle du résidu de l'équation de transport discrète.
+
+\begin{remark}
+    Le schéma diamant constitue une autre discrétisation classique de l'équation de transport. Il fournit une approximation plus précise dans les régions régulières, mais peut produire des flux angulaires négatifs dans les cellules optiquement épaisses. Le schéma décentré amont n'est que d'ordre un en espace et introduit une diffusion numérique, mais il préserve la positivité sans condition supplémentaire et conduit directement à un balayage robuste. C'est pour cette raison qu'il est retenu comme premier schéma du solveur.
+\end{remark}
+
+Le problème de transport discret est ainsi séparé en deux opérations élémentaires : une intégration angulaire par la quadrature $S_N$ et une résolution spatiale par balayage amont. Cette décomposition fournit directement les deux briques principales du futur code : le calcul du flux scalaire à partir des flux angulaires et le balayage des cellules dans le sens imposé par chaque direction.
+
+
+\section {Étude du schéma de transport}
+\label{subsec:etude-schema-transport}
+
+On étudie maintenant les propriétés du schéma $S_N$ décentré amont construit dans la section précédente. L'objectif est de vérifier que la solution numérique reste cohérente avec les principales propriétés du problème continu : prise en compte des conditions au bord entrant, positivité de la densité neutronique et conservation du bilan global. On discutera enfin la convergence du schéma lorsque le maillage spatial est raffiné et que le nombre d'ordonnées augmente.
+
+Pour rappeler les notations, le problème discret s'écrit dans chaque cellule $K_i$ et pour chaque direction $\mu_m$ :
+\begin{equation}
+    \mu_m
+    ( \psi_{i+\frac12,m} - \psi_{i-\frac12,m})
+    + h_i\Sigma_{t,i}\psi_{i,m}
+    = h_i \left( \frac{\Sigma_{p,i}}{2}\phi_i +q_{i,m} \right),
+    \label{eq:transport-discret-rappel}
+\end{equation}
+avec
+\begin{equation}
+    \phi_i = \sum_{m=1}^{M}w_m\psi_{i,m}.
+    \label{eq:flux-scalaire-discret-rappel}
+\end{equation}
+La valeur utilisée sur chaque face est choisie dans la cellule située en amont par rapport au signe de $\mu_m$.
+
+\subsection {Consistance du schéma}
+
+On commence par rappeler la notion de consistance adaptée à notre problème.
+
+\begin{definition}[Consistance]
+Un schéma de transport est dit consistant si, lorsqu'on y remplace les inconnues discrètes par les valeurs d'une solution régulière du problème continu, le résidu obtenu tend vers zéro lorsque les paramètres de discrétisation tendent vers zéro.
+\end{definition}
+
+Deux approximations interviennent ici : la discrétisation spatiale de l'opérateur de transport et la quadrature de la variable angulaire. Considérons d'abord une direction $\mu_m>0$. Pour une fonction $x\mapsto\psi(x,\mu_m)$ de classe $\mathcal C^2$, un développement de Taylor donne
+\[
+    \frac{\psi(x_i,\mu_m)-\psi(x_i-h,\mu_m)}{h}
+    =\partial_x\psi(x_i,\mu_m)
+    -\frac{h}{2} \partial_{xx}\psi(\xi_{i,m},\mu_m),
+\]
+pour un certain $\xi_{i,m}\in(x_i-h,x_i)$. On obtient donc
+\[
+    \frac{\psi(x_i,\mu_m)-\psi(x_i-h,\mu_m)}{h}
+    =\partial_x\psi(x_i,\mu_m)+O(h).
+\]
+
+Lorsque $\mu_m<0$, le point amont est situé à droite et
+\[
+    \frac{\psi(x_i+h,\mu_m)-\psi(x_i,\mu_m)}{h}
+    = \partial_x\psi(x_i,\mu_m)+O(h).
+\]
+Dans les deux cas, l'approximation décentrée de la dérivée est donc précise à l'ordre un en espace.
+
+Cette propriété reste valable dans la formulation conservative \eqref{eq:transport-discret-rappel}. Le schéma utilise une reconstruction constante par cellule et approche les termes de collision et de source par leurs valeurs cellulaires. Pour une solution régulière, l'erreur locale produite par cette reconstruction est également d'ordre $h$.
+
+La discrétisation angulaire introduit une seconde erreur. Notons
+\begin{equation}
+    \varepsilon_M(\psi) = \sup_{x\in\Omega}
+    \left|
+        \int_{-1}^{1}\psi(x,\mu)\,\mathrm{d}\mu - \sum_{m=1}^{M}w_m\psi(x,\mu_m)
+    \right|.
+    \label{eq:erreur-quadrature-transport}
+\end{equation}
+
+Le résidu obtenu en injectant la solution continue dans le schéma vérifie alors formellement
+\begin{equation}
+    \left| \tau_{i,m}^{h,M} \right|
+    \leq C (h+\varepsilon_M(\psi)),
+    \label{eq:erreur-consistance-transport}
+\end{equation}
+où la constante $C$ dépend des dérivées spatiales de $\psi$ et des
+coefficients du problème, mais pas de $h$.
+
+\begin{proposition}[Consistance du schéma $S_N$ amont]
+    Supposons que la solution $\psi$ soit deux fois continûment dérivable par rapport à $x$  suffisamment régulière par rapport à $\mu$. Alors le schéma décentré amont est consistant d'ordre un en espace. De plus,
+    \[
+        \tau_{i,m}^{h,M} \longrightarrow0
+    \]
+    lorsque
+    \[
+        h\longrightarrow0 \qquad\text{et}\qquad \varepsilon_M(\psi)\longrightarrow0.
+    \]
+\end{proposition}
+
+La quadrature de Gauss--Legendre étant exacte pour les polynômes de degré inférieur ou égal à $2M-1$, l'erreur angulaire décroît rapidement lorsque la dépendance en $\mu$ est régulière. L'ordre global du schéma reste cependant limité à un en espace par le décentrage amont.
+
+\subsection {Traitement des conditions au bord entrant}
+
+L'équation de transport est du premier ordre selon la variable $x$. Une condition aux limites ne peut donc être imposée que sur la partie entrante du bord de l'espace des phases :
+\[
+    \Gamma^- =\left\{ (-L,\mu),\ \mu>0 \right\}
+    \cup \left\{ (L,\mu),\ \mu<0 \right\}.
+\]
+Cette structure, déjà rencontrée dans l'étude par caractéristiques, est
+conservée exactement par le schéma amont.
+
+Pour $\mu_m>0$, le balayage commence au bord gauche avec
+\[
+    \psi_{\frac12,m}
+    =
+    \psi_{\mathrm{in}}^{-}(\mu_m),
+\]
+puis les cellules sont parcourues de gauche à droite. Pour $\mu_m<0$,
+on impose
+\[
+    \psi_{N+\frac12,m} = \psi_{\mathrm{in}}^{+}(\mu_m),
+\]
+et le calcul s'effectue de droite à gauche.
+
+Aucune donnée n'est imposée sur le bord sortant. Les valeurs
+\[
+    \psi_{N+\frac12,m}, \qquad \mu_m>0,
+\]
+et
+\[
+    \psi_{\frac12,m}, \qquad \mu_m<0,
+\]
+sont des résultats du calcul : elles représentent les neutrons quittant le réacteur.
+
+Dans le cas d'un bord vide, on impose simplement
+\[
+    \psi_{\frac12,m}=0 \quad\text{pour }\mu_m>0,  \qquad
+    \psi_{N+\frac12,m}=0 \quad\text{pour }\mu_m<0.
+\]
+Le schéma reproduit ainsi la structure du problème continu sans ajouter de condition artificielle sur le flux sortant.
+
+\subsection {Positivité et stabilité}
+
+La consistance ne suffit pas à garantir qu'un schéma produise une solution physiquement acceptable. Il faut également vérifier que les flux angulaires restent positifs lorsque les sources et les données entrantes le sont.
+
+On rappelle que le balayage amont s'écrit dans chaque cellule
+\begin{equation}
+    \psi_{i,m}
+    = \frac{
+        |\mu_m|\psi_{i,m}^{\mathrm{amont}}
+        + h_i \left(
+            \dfrac{\Sigma_{p,i}}{2}\phi_i
+            +q_{i,m}
+        \right)
+    }{|\mu_m|+h_i\Sigma_{t,i}}.
+    \label{eq:formule-positivite-upwind}
+\end{equation}
+
+\begin{theorem}[Principe du maximum discret]
+    Considérons un schéma décentré amont pour lequel
+    \[
+        \Sigma_{t,i}\geq0
+    \]
+    dans chaque cellule. Si les données entrantes et le terme source sont positifs, alors la solution obtenue par balayage est positive. Cette propriété ne nécessite aucune condition sur le pas du maillage.
+\end{theorem}
+
+En effet, le dénominateur de \eqref{eq:formule-positivite-upwind} est strictement positif puisque $\mu_m\neq0$. Si la valeur provenant de la cellule amont et la source sont positives, alors $\psi_{i,m}\geq0$. En partant d'une donnée entrante positive, la propriété se transmet par récurrence à toutes les cellules du balayage.
+
+Dans le problème couplé, on initialise l'itération sur les sources par un flux scalaire positif. Comme
+\[
+    \Sigma_{p,i}\geq0, \qquad w_m>0, \qquad q_{i,m}\geq0,
+\]
+chaque source
+\[
+    \frac{\Sigma_{p,i}}{2}\phi_i^{(n)}+q_{i,m}
+\]
+est positive. Le théorème précédent montre alors par récurrence que
+\[
+    \psi_{i,m}^{(n)}\geq0
+    \qquad\text{et}\qquad
+    \phi_i^{(n)}\geq0
+\]
+à toutes les itérations. Si l'itération sur les sources converge, sa limite est donc elle aussi positive.
+
+On obtient également une estimation de stabilité pour un problème à source fixée. Supposons qu'il existe $\sigma_0>0$ tel que
+\[
+    \Sigma_{t,i}\geq\sigma_0 \qquad\text{pour tout }i.
+\]
+La formule de balayage peut alors s'écrire
+\[
+    \psi_{i,m} = \alpha_{i,m}\psi_{i,m}^{\mathrm{amont}}
+    + (1-\alpha_{i,m}) \frac{S_{i,m}}{\Sigma_{t,i}},
+\]
+avec
+\[
+    \alpha_{i,m} = \frac{|\mu_m|} {|\mu_m|+h_i\Sigma_{t,i}} \in[0,1].
+\]
+La solution dans une cellule est donc une combinaison convexe de la valeur amont et du rapport $S_{i,m}/\Sigma_{t,i}$. Par récurrence le long du balayage, on en déduit
+\begin{equation}
+    \|\Psi_h\|_{\infty}
+    \leq \max \left(
+        \|\Psi_{\mathrm{in}}\|_{\infty},
+        \frac{\|S_h\|_{\infty}}{\sigma_0} \right).
+    \label{eq:stabilite-Linf-upwind}
+\end{equation}
+Cette estimation est indépendante du pas $h$. Le schéma est donc stable en norme discrète $L^\infty$.
+
+Pour le problème couplé, cette stabilité doit être complétée par la condition de convergence de l'itération sur les sources :
+\[
+    \rho\!\left( \mathcal K_h\Sigma_pP_h \right)<1.
+\]
+Lorsque ce rayon spectral est proche de $1$, le problème reste stable, mais la convergence des itérations devient lente.
+
+\subsection {Bilan neutronique discret}
+
+L'écriture conservative du schéma permet de retrouver un bilan neutronique exact au niveau discret. On multiplie \eqref{eq:transport-discret-rappel} par le poids $w_m$, puis on somme sur toutes les directions. En introduisant le courant aux faces
+\begin{equation}
+    J_{i+\frac12} = \sum_{m=1}^{M} w_m\mu_m\psi_{i+\frac12,m}
+    \label{eq:courant-discret-transport}
+\end{equation}
+et la source scalaire
+\[
+    Q_i
+    =
+    \sum_{m=1}^{M}w_mq_{i,m},
+\]
+on obtient
+\begin{equation}
+    J_{i+\frac12} -J_{i-\frac12} + h_i (\Sigma_{t,i}-\Sigma_{p,i}) \phi_i
+    = h_iQ_i.
+    \label{eq:bilan-local-transport-discret}
+\end{equation}
+On a utilisé ici les relations
+\[
+    \sum_{m=1}^{M}w_m=2
+    \qquad\text{et}\qquad
+    \sum_{m=1}^{M}w_m\psi_{i,m}=\phi_i.
+\]
+
+L'équation \eqref{eq:bilan-local-transport-discret} est l'analogue discret du bilan scalaire obtenu en intégrant l'équation continue par rapport à $\mu$. Le terme
+\[
+    \Sigma_t-\Sigma_p = \Sigma_c+(1-\nu)\Sigma_f
+\]
+représente la perte nette de neutrons par collision, en tenant compte de la production par fission.
+
+En sommant maintenant sur toutes les cellules, les courants intérieurs se compensent deux à deux :
+\begin{equation}
+    J_{N+\frac12} - J_{\frac12} 
+    + \sum_{i=1}^{N}h_i \left( \Sigma_{t,i}-\Sigma_{p,i} \right) \phi_i 
+    =\sum_{i=1}^{N}h_iQ_i.
+    \label{eq:bilan-global-transport-discret}
+\end{equation}
+
+Pour faire apparaître explicitement les entrées et les sorties du
+domaine, on définit
+\begin{align*}
+    \mathcal L_{\mathrm{out}} ={}& \sum_{\mu_m>0} w_m\mu_m\psi_{N+\frac12,m} +
+    \sum_{\mu_m<0} w_m|\mu_m|\psi_{\frac12,m},\\
+    \mathcal L_{\mathrm{in}} ={}& \sum_{\mu_m>0} w_m\mu_m\psi_{\frac12,m}
+    + \sum_{\mu_m<0} w_m|\mu_m|\psi_{N+\frac12,m}.
+\end{align*}
+On vérifie alors que
+\[
+    J_{N+\frac12}-J_{\frac12} = \mathcal L_{\mathrm{out}} - \mathcal L_{\mathrm{in}}.
+\]
+Le bilan global devient finalement
+\begin{equation}
+    \boxed{
+        \mathcal L_{\mathrm{out}} + \sum_{i=1}^{N} h_i\left( \Sigma_{t,i}-\Sigma_{p,i} \right)\phi_i
+        = \mathcal L_{\mathrm{in}} + \sum_{i=1}^{N}h_iQ_i.
+    }
+    \label{eq:bilan-neutronique-global}
+\end{equation}
+
+Ainsi, les neutrons introduits par le bord ou par la source externe sont exactement équilibrés par les fuites et les pertes nettes par collision. Aucun terme de création ou de disparition purement numérique n'apparaît dans le bilan. Cette conservation est une conséquence directe de l'utilisation d'un flux unique sur chaque face commune à deux cellules.
+
+Dans le cas de conditions de vide, $\mathcal L_{\mathrm{in}}=0$ et le
+bilan se réduit à
+\[
+    \mathcal L_{\mathrm{out}}
+    + \sum_{i=1}^{N} h_i \left(\Sigma_{t,i}-\Sigma_{p,i} \right)\phi_i
+    = \sum_{i=1}^{N}h_iQ_i.
+\]
+
+\subsection {Convergence du schéma}
+
+La consistance seule ne suffit pas à assurer la convergence. Le lien entre consistance, stabilité et convergence est donné par le principe classique suivant.
+
+\begin{theorem}[Principe de Lax]
+    Pour un problème linéaire bien posé, un schéma linéaire consistant et stable est convergent. Lorsque l'estimation de stabilité est uniforme par rapport aux paramètres de discrétisation, l'ordre de convergence est celui de l'erreur de consistance.
+\end{theorem}
+
+Considérons d'abord un nombre $M$ fixé de directions. Le système $S_N$ est alors un système fini d'équations de transport. Le schéma amont est consistant d'ordre un en espace et l'estimation \eqref{eq:stabilite-Linf-upwind} fournit une stabilité indépendante de $h$. Pour un problème à source fixée et une solution suffisamment régulière, on s'attend donc à
+\begin{equation}
+    \max_{\substack{1\leq i\leq N\\1\leq m\leq M}}
+    \left| \psi(x_i,\mu_m)-\psi_{i,m} \right| \leq C_M h.
+    \label{eq:convergence-spatiale-transport}
+\end{equation}
+La constante $C_M$ peut dépendre des directions discrètes et de la régularité de la solution, mais pas du pas spatial.
+
+Dans le cas couplé, le même raisonnement reste valable si l'opérateur d'itération sur les sources est uniformément contractant, c'est-à-dire si son rayon spectral reste strictement inférieur à $1$ lorsque le maillage est raffiné. L'erreur de discrétisation est alors amplifiée par un facteur lié à
+\[
+    \frac{1}{
+        1-\rho(\mathcal K_h\Sigma_pP_h)
+    }.
+\]
+Cette expression explique la dégradation de la convergence numérique lorsque le système se rapproche de la criticité.
+
+Il reste enfin à faire tendre le nombre d'ordonnées vers l'infini. Sous des hypothèses suffisantes de régularité en $\mu$, la quadrature de Gauss--Legendre vérifie
+\[
+    \varepsilon_M(\psi)\longrightarrow0
+    \qquad\text{lorsque }M\longrightarrow+\infty.
+\]
+En combinant l'erreur spatiale et l'erreur angulaire, on attend donc une
+estimation de la forme
+\begin{equation}
+    \boxed{
+        \|\psi-\psi_{h,M}\| + \|\phi-\phi_{h,M}\|
+        \leq C \left(h+\varepsilon_M(\psi) \right),}
+    \label{eq:convergence-globale-transport}
+\end{equation}
+dans une norme adaptée aux reconstructions discrètes, sous réserve que le problème reste uniformément stable.
+
+Cette estimation fait apparaître les deux limites qui doivent être étudiées séparément lors de la validation du solveur :
+\[
+    h\longrightarrow0
+    \qquad\text{et}\qquad
+    M\longrightarrow+\infty.
+\]
+La première contrôle la résolution spatiale des trajectoires neutroniques, tandis que la seconde contrôle la représentation de leur distribution angulaire.
+
+Dans les régions où la solution est régulière, le raffinement spatial doit produire une convergence d'ordre un. La convergence angulaire peut être beaucoup plus rapide grâce à la quadrature de Gauss--Legendre, mais elle peut se dégrader en présence de discontinuités matérielles, de conditions aux limites peu régulières ou de fortes anisotropies. Ces deux comportements devront donc être vérifiés séparément dans les tests numériques : une étude de maillage à nombre d'ordonnées fixé, puis une étude en ordre angulaire sur un maillage suffisamment fin.
+
+On obtient finalement un schéma à la fois consistant, positif et conservatif. Ces propriétés en font une base robuste pour la résolution du problème stationnaire à source. Elles permettront également de construire le problème de criticité en transport, dans lequel la source de fission et le facteur de multiplication seront traités par une itération externe.
+
+
+\section {Problème de criticité en transport}
+\label{subsec:criticite-transport}
+
+On cherche maintenant à transposer au modèle de transport la démarche suivie pour le problème de criticité en diffusion. Dans l'équation stationnaire à source étudiée précédemment, le coefficient
+\[
+    \Sigma_p=\Sigma_s+\nu\Sigma_f
+\]
+regroupait les neutrons produits par diffusion et par fission. Pour faire apparaître le facteur de multiplication effectif, il faut désormais séparer ces deux contributions. Le problème continu de criticité en transport s'écrit alors
+\begin{equation}
+    \mu\partial_x\psi + \Sigma_t\psi
+    = \frac{\Sigma_s}{2}\phi + \frac{1}{k}\frac{\nu\Sigma_f}{2}\phi,
+    \qquad \phi(x)=\int_{-1}^{1}\psi(x,\mu)\,\mathrm{d}\mu,
+    \label{eq:criticite-transport-continue}
+\end{equation}
+avec des conditions de vide sur le bord entrant :
+\[
+    \psi(-L,\mu)=0 \quad \text{pour }\mu>0,  \qquad   \psi(L,\mu)=0 \quad \text{pour }\mu<0.
+\]
+La diffusion modifie la direction des neutrons déjà présents dans le système, tandis que la fission produit une nouvelle génération de neutrons. C'est cette seconde contribution qui est pondérée par le
+facteur $1/k$.
+
+\subsection {Formulation matricielle}
+
+On regroupe les $NM$ flux angulaires dans le vecteur
+\[
+    \Psi_h = \left( \psi_{i,m} \right)_{\substack{1\leq i\leq N\\1\leq m\leq M}}
+    \in\mathbb{R}^{NM},
+\]
+et l'on rappelle que le flux scalaire dans la cellule $K_i$ est donné
+par
+\[
+    \phi_i = \sum_{m=1}^{M}w_m\psi_{i,m}.
+\]
+
+On introduit trois opérateurs discrets. Le premier,
+$\mathcal T_h$, regroupe le transport amont et les collisions totales :
+\begin{equation}
+    \left( \mathcal T_h\Psi_h \right)_{i,m} =
+    \mu_m \left(\psi_{i+\frac12,m} - \psi_{i-\frac12,m} \right)
+    + h_i\Sigma_{t,i}\psi_{i,m}.
+    \label{eq:operateur-transport-discret}
+\end{equation}
+Les valeurs aux faces sont choisies selon le décentrage amont introduit
+dans la section~5.5.
+
+L'opérateur de diffusion isotrope est défini par
+\begin{equation}
+    \left(\mathcal S_h\Psi_h \right)_{i,m} 
+    = \frac{h_i\Sigma_{s,i}}{2} \sum_{\ell=1}^{M} w_\ell\psi_{i,\ell}
+    = \frac{h_i\Sigma_{s,i}}{2}\phi_i,
+    \label{eq:operateur-scattering-discret}
+\end{equation}
+tandis que l'opérateur de fission est donné par
+\begin{equation}
+    \left( \mathcal F_h\Psi_h \right)_{i,m}
+    = \frac{h_i\nu\Sigma_{f,i}}{2} \sum_{\ell=1}^{M} w_\ell\psi_{i,\ell}
+    = \frac{h_i\nu\Sigma_{f,i}}{2}\phi_i.
+    \label{eq:operateur-fission-transport}
+\end{equation}
+
+Le problème discret de criticité s'écrit ainsi
+\begin{equation}
+    \boxed{\left( \mathcal T_h-\mathcal S_h \right)\Psi_h = \frac{1}{k_h}\mathcal F_h\Psi_h.}
+    \label{eq:criticite-transport-discrete}
+\end{equation}
+
+La notation $\mathcal T_h$ désigne ici l'opérateur de transport et
+d'atténuation. Elle ne doit pas être confondue avec l'opérateur de
+génération $T_h=A_h^{-1}F_h$ introduit pour le problème de diffusion
+dans la section~5.4.
+
+Pour retrouver une formulation analogue à celle utilisée en diffusion,
+on pose
+\[
+\mathcal A_h = \mathcal T_h-\mathcal S_h.
+\]
+L'opérateur $\mathcal A_h$ représente donc le transport, les collisions
+totales et la redistribution par diffusion. Sous les hypothèses
+assurant l'existence et l'unicité du problème stationnaire à source, il
+est inversible. On peut alors introduire l'opérateur de génération en
+transport
+\begin{equation}
+    \boxed{
+        \mathcal G_h = \mathcal A_h^{-1}\mathcal F_h
+        = \left( \mathcal T_h-\mathcal S_h \right)^{-1} \mathcal F_h.
+    }
+    \label{eq:operateur-generation-transport}
+\end{equation}
+Le problème \eqref{eq:criticite-transport-discrete} devient
+\begin{equation}
+    \mathcal G_h\Psi_h=k_h\Psi_h.
+    \label{eq:probleme-propre-transport}
+\end{equation}
+
+On retrouve ainsi exactement la structure déjà rencontrée pour le
+problème de diffusion :
+\[
+    \begin{array}{ccc}
+        \text{diffusion}
+        &&
+        T_h=A_h^{-1}F_h,
+        \\[0.2cm]
+        \text{transport}
+        &&
+        \mathcal G_h = (\mathcal T_h-\mathcal S_h)^{-1}\mathcal F_h.
+    \end{array}
+\]
+Dans les deux cas, l'opérateur de génération associe à une distribution neutronique le flux produit par la génération de fission correspondante.
+
+\subsection {Positivité et mode fondamental}
+
+Le schéma amont étudié dans la section précédente possède une propriété de positivité : pour une source et des données entrantes positives, le balayage produit un flux angulaire positif. L'opérateur $\mathcal T_h^{-1}$ est donc positif.
+
+L'inversion de $\mathcal A_h=\mathcal T_h-\mathcal S_h$ peut être construite par l'itération sur les sources
+\[
+    \mathcal T_h\Psi_h^{(\ell+1)} = \mathcal S_h\Psi_h^{(\ell)}+Q_h.
+\]
+Lorsque cette itération converge, sa limite est positive dès que $Q_h\geq0$. On en déduit que
+\[
+    \mathcal A_h^{-1}\geq0.
+\]
+Comme l'opérateur de fission $\mathcal F_h$ est lui aussi positif, l'opérateur de génération vérifie
+\[
+    \mathcal G_h = \mathcal A_h^{-1}\mathcal F_h \geq0.
+\]
+
+Le théorème de Perron--Frobenius énoncé dans la section~5.4 peut donc être appliqué à l'opérateur de génération, après restriction aux cellules fissiles comme dans le cas de la diffusion. Il existe une valeur propre dominante réelle et positive, associée à un mode fondamental positif. Le facteur de multiplication effectif discret est ainsi donné par
+\begin{equation}
+    \boxed{
+        k_{\mathrm{eff},h} = \rho(\mathcal G_h)
+        = \rho\!\left( (\mathcal T_h-\mathcal S_h)^{-1} \mathcal F_h \right).
+    }
+    \label{eq:keff-transport-rayon-spectral}
+\end{equation}
+Ce résultat constitue l'analogue en transport de la caractérisation spectrale obtenue en diffusion. La différence principale vient du fait que l'inversion de $\mathcal A_h$ ne correspond plus à la résolution d'un unique système tridiagonal : elle demande elle-même de traiter le couplage angulaire créé par la diffusion isotrope.
+
+\subsection {Structure générale de l'algorithme}
+
+La méthode de puissance permet de calculer la valeur propre dominante de $\mathcal G_h$ sans former explicitement cet opérateur. Une application de $\mathcal G_h$ consiste à construire une source de
+fission, puis à résoudre un problème stationnaire de transport avec diffusion. Cette résolution est elle-même effectuée par une itération sur les sources. L'algorithme possède donc deux niveaux :
+
+\begin{itemize}
+    \item une itération externe, qui met à jour la source de fission et le facteur $k_h$ ;
+    \item une itération interne, qui résout le problème de transport àsource de fission fixée en faisant converger la source de diffusion.
+\end{itemize}
+
+On introduit la production totale de fission associée à un flux angulaire discret :
+\begin{equation}
+    \mathcal P_h(\Psi_h)
+    = \sum_{i=1}^{N} h_i\nu\Sigma_{f,i}\phi_i
+    = \sum_{i=1}^{N} h_i\nu\Sigma_{f,i} \sum_{m=1}^{M}w_m\psi_{i,m}.
+    \label{eq:production-fission-transport}
+\end{equation}
+On choisit un flux initial strictement positif $\Psi_h^{(0)}>0$ ainsi qu'une première approximation $k_h^{(0)}>0$. Le flux est normalisé de sorte que
+\[
+    \mathcal P_h\!\left(\Psi_h^{(0)}\right)=1.
+\]
+
+\subsection {Itération externe sur la source de fission}
+
+Supposons $\Psi_h^{(n)}$ et $k_h^{(n)}$ connus. On construit la source de fission de l'itération externe suivante :
+\begin{equation}
+    Q_{f,h}^{(n)} = \frac{1}{k_h^{(n)}} \mathcal F_h\Psi_h^{(n)}.
+    \label{eq:source-fission-externe}
+\end{equation}
+
+Pendant toute la résolution interne, cette source est maintenue fixe. Il faut alors résoudre
+\begin{equation}
+    \left( \mathcal T_h-\mathcal S_h \right) \widehat{\Psi}_h^{(n+1)} = Q_{f,h}^{(n)}.
+    \label{eq:probleme-interne-transport}
+\end{equation}
+Le vecteur $\widehat{\Psi}_h^{(n+1)}$ désigne ici le flux obtenu avant normalisation.
+
+\subsection {Itération interne sur la diffusion}
+
+La présence de $\mathcal S_h\widehat{\Psi}_h^{(n+1)}$ empêche de résoudre directement \eqref{eq:probleme-interne-transport} par un seul balayage. On utilise l'itération sur les sources étudiée dans la section~5.5.
+
+On initialise par exemple
+\[ \Psi_h^{(n+1,0)} = \Psi_h^{(n)}, \]
+
+puis, pour $\ell\geq0$, on résout
+\begin{equation}
+    \boxed{
+        \mathcal T_h \Psi_h^{(n+1,\ell+1)} =
+        \mathcal S_h \Psi_h^{(n+1,\ell)} + Q_{f,h}^{(n)}.
+    }
+    \label{eq:iteration-interne-scattering}
+\end{equation}
+
+Pour chaque valeur de $\ell$, le second membre est connu. L'inversion de $\mathcal T_h$ est alors réalisée par les balayages amont :
+\[
+    \mu_m>0 \quad \Longrightarrow  \quad i=1,\ldots,N,
+\]
+et
+\[
+    \mu_m<0  \quad  \Longrightarrow  \quad  i=N,\ldots,1.
+\]
+Une itération interne complète comprend donc un balayage de toutes les directions positives, un balayage de toutes les directions négatives, puis un nouveau calcul du flux scalaire
+\[
+    \phi_i^{(n+1,\ell+1)} = \sum_{m=1}^{M} w_m\psi_{i,m}^{(n+1,\ell+1)}.
+\]
+
+La convergence de cette itération repose sur le résultat suivant.
+
+\begin{theorem}[Convergence d'une itération linéaire]
+    Soit une suite définie par
+    \[  X^{(\ell+1)}=GX^{(\ell)}+C. \]
+    Cette suite converge pour toute donnée initiale vers l'unique point fixe si et seulement si
+    \[  \rho(G)<1. \]
+\end{theorem}
+
+Dans notre cas, la matrice d'itération interne est
+\[
+    G_{s,h} =  \mathcal T_h^{-1}\mathcal S_h.
+\]
+L'itération sur la diffusion converge donc sous la condition
+\begin{equation}
+    \rho\!\left( \mathcal T_h^{-1}\mathcal S_h \right)<1.
+    \label{eq:condition-convergence-interne}
+\end{equation}
+Cette condition est satisfaite lorsque l'absorption et les fuites compensent suffisamment la diffusion. Dans un milieu très diffusant, le rayon spectral peut être proche de $1$ et l'itération interne devient lente, ce qui motivera éventuellement une accélération par diffusion.
+
+On arrête l'itération interne lorsque le résidu
+\begin{equation}
+    r_{s,h}^{(n+1,\ell+1)}
+    = \mathcal T_h\Psi_h^{(n+1,\ell+1)}
+    - \mathcal S_h\Psi_h^{(n+1,\ell+1)}
+    - Q_{f,h}^{(n)}
+    \label{eq:residu-interne-transport}
+\end{equation}
+vérifie
+\begin{equation}
+    \varepsilon_s^{(n+1,\ell+1)}
+    =
+    \frac{\left\| r_{s,h}^{(n+1,\ell+1)} \right\|_2}
+    {\left\| Q_{f,h}^{(n)} \right\|_2
+    + \left\| \mathcal T_h \Psi_h^{(n+1,\ell+1)} \right\|_2 }
+    < \varepsilon_{\mathrm{int}}.
+    \label{eq:critere-interne-transport}
+\end{equation}
+On pose alors
+\[
+    \widehat{\Psi}_h^{(n+1)} = \Psi_h^{(n+1,\ell+1)}.
+\]
+
+\subsection {Mise à jour de $k_h$ et normalisation}
+
+Une fois le problème interne résolu, le nouveau facteur de multiplication est obtenu par le rapport des productions totales de fission :
+\begin{equation}
+    \boxed{
+        k_h^{(n+1)} = k_h^{(n)}
+        \frac{\mathcal P_h\!\left( \widehat{\Psi}_h^{(n+1)} \right)}
+        {\mathcal P_h\!\left( \Psi_h^{(n)}\right)}.
+    }
+    \label{eq:mise-a-jour-keff-transport}
+\end{equation}
+Comme le flux de l'itération précédente est normalisé, le dénominateur vaut $1$.
+
+Le problème propre étant homogène, l'amplitude du flux reste indéterminée. On normalise donc le nouveau flux selon
+\begin{equation}
+    \boxed{
+        \Psi_h^{(n+1)} =
+        \frac{\widehat{\Psi}_h^{(n+1)}}
+        {\mathcal P_h\!\left(\widehat{\Psi}_h^{(n+1)}\right)}
+    }
+    \label{eq:normalisation-transport}
+\end{equation}
+Cette définition garantit
+\[
+    \mathcal P_h\!\left(\Psi_h^{(n+1)} \right)=1
+\]
+à chaque itération externe.
+
+L'ensemble de la méthode peut finalement être résumé par
+\begin{equation}
+\boxed{
+\begin{aligned}
+    Q_{f,h}^{(n)}
+    &=
+    \frac{1}{k_h^{(n)}}
+    \mathcal F_h\Psi_h^{(n)}, \\[0.15cm]
+    \mathcal T_h\Psi_h^{(n+1,\ell+1)} &= \mathcal S_h\Psi_h^{(n+1,\ell)} + Q_{f,h}^{(n)}, \\[0.15cm]
+    k_h^{(n+1)}
+    &=
+    k_h^{(n)}
+    \frac{\mathcal P_h(\widehat{\Psi}_h^{(n+1)})}
+    {\mathcal P_h(\Psi_h^{(n)})},\\[0.15cm]
+    \Psi_h^{(n+1)}
+    &= \frac{\widehat{\Psi}_h^{(n+1)}}
+    {\mathcal P_h(\widehat{\Psi}_h^{(n+1)})}.
+\end{aligned}
+}
+\label{eq:algorithme-criticite-transport}
+\end{equation}
+
+\subsection {Critères de convergence externes}
+
+La convergence de l'itération externe ne doit pas être évaluée uniquement à partir de la variation du facteur de multiplication. Deux valeurs successives de $k_h$ peuvent en effet être proches alors que la forme du flux n'a pas encore convergé. On contrôle donc à la fois $k_h$ et le résidu du problème propre.
+
+La variation relative du facteur de multiplication est définie par
+\begin{equation}
+    \varepsilon_k^{(n+1)} =
+    \frac{\left| k_h^{(n+1)}-k_h^{(n)} \right|}
+    {\left|k_h^{(n+1)}\right|}.
+    \label{eq:critere-keff-transport}
+\end{equation}
+
+Le résidu associé au problème de criticité est
+\begin{equation}
+    r_{k,h}^{(n+1)} = \left( \mathcal T_h-\mathcal S_h \right) \Psi_h^{(n+1)}
+    - \frac{1}{k_h^{(n+1)}} \mathcal F_h\Psi_h^{(n+1)}.
+    \label{eq:residu-criticite-transport}
+\end{equation}
+On introduit alors le résidu relatif
+\begin{equation}
+    \varepsilon_r^{(n+1)}
+    = \frac{\left\| r_{k,h}^{(n+1)} \right\|_2}
+    {\left\|
+        \left( \mathcal T_h-\mathcal S_h \right) \Psi_h^{(n+1)} \right\|_2
+        + \left\| \dfrac{1}{k_h^{(n+1)}} \mathcal F_h\Psi_h^{(n+1)} \right\|_2}.
+    \label{eq:critere-residu-transport}
+\end{equation}
+L'algorithme est arrêté lorsque
+\begin{equation}
+    \boxed{
+        \varepsilon_k^{(n+1)} < \varepsilon_{\mathrm{ext}}
+        \qquad\text{et}\qquad
+        \varepsilon_r^{(n+1)} < \varepsilon_{\mathrm{ext}}.
+    }
+    \label{eq:arret-criticite-transport}
+\end{equation}
+
+La tolérance interne $\varepsilon_{\mathrm{int}}$ doit être choisie suffisamment petite pour que l'erreur de résolution du problème à source ne perturbe pas la convergence externe. Il n'est toutefois pas nécessaire de résoudre très précisément les premières itérations internes, puisque la source de fission est encore éloignée de sa valeur limite. Dans une implémentation plus avancée, la tolérance interne pourra donc être resserrée progressivement au cours des itérations externes.
+
+On obtient finalement une structure numérique emboîtée. Une itération externe correspond au passage d'une génération de fission à la suivante. À l'intérieur de cette génération, l'itération sur les
+sources reconstruit les diffusions successives des neutrons, et chaque application de l'opérateur de transport est réalisée par les balayages amont. Le problème spectral abstrait
+\[
+    \mathcal G_h\Psi_h=k_h\Psi_h
+\]
+se traduit ainsi directement par les trois niveaux de calcul qui structureront le solveur :
+\[
+    \boxed{
+        \text{itération de puissance}
+        \;\longrightarrow\; \text{itération sur la diffusion}
+        \;\longrightarrow\; \text{balayages de transport}.}
+\]
+
+\end{document}
