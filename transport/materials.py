@@ -34,7 +34,7 @@ class Material1D:
 
     @property
     def sigma_p(self) -> float:
-        return self.sigma_c + self.nu * self.sigma_f
+        return self.sigma_s + self.nu * self.sigma_f
 
     @property
     def diffusion_coefficient(self) -> float:

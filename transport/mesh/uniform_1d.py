@@ -81,7 +81,7 @@ class UniformMesh1D:
 
     @property
     def Sigma_p(self) -> np.ndarray:
-        return self.Sigma_c + self.nu * self.Sigma_f
+        return self.Sigma_s + self.nu * self.Sigma_f
 
     @property
     def diffusion_coefficient(self) -> np.ndarray:
