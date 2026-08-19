@@ -1,55 +1,14 @@
 import numpy as np
-from numba import njit
 
 from transport.mesh import UniformMesh1D
 from transport.quadrature import SNQuadrature
+from transport.sn._kernels import (
+    criticality_residual_numba,
+    negative_sweep_numba,
+    positive_sweep_numba,
+    solve_flux_only_numba,
+)
 from transport.sn.results import TransportStationaryResult
-
-
-@njit
-def positive_sweep_numba(
-    source: np.ndarray,
-    mu_pos: np.ndarray,
-    sigma_t: np.ndarray,
-    h: float,
-    left_boundary: np.ndarray,
-) -> np.ndarray:
-    n_half = mu_pos.size
-    n_cells = sigma_t.size
-    psi_pos = np.empty((n_half, n_cells))
-    psi_in = left_boundary.copy()
-
-    for i in range(n_cells):
-        for m in range(n_half):
-            psi_pos[m, i] = (psi_in[m] * mu_pos[m] + h * source[i]) / (
-                mu_pos[m] + h * sigma_t[i]
-            )
-            psi_in[m] = psi_pos[m, i]
-
-    return psi_pos
-
-
-@njit
-def negative_sweep_numba(
-    source: np.ndarray,
-    mu_neg_abs: np.ndarray,
-    sigma_t: np.ndarray,
-    h: float,
-    right_boundary: np.ndarray,
-) -> np.ndarray:
-    n_half = mu_neg_abs.size
-    n_cells = sigma_t.size
-    psi_neg = np.empty((n_half, n_cells))
-    psi_in = right_boundary.copy()
-
-    for i in range(n_cells - 1, -1, -1):
-        for m in range(n_half):
-            psi_neg[m, i] = (psi_in[m] * mu_neg_abs[m] + h * source[i]) / (
-                mu_neg_abs[m] + h * sigma_t[i]
-            )
-            psi_in[m] = psi_neg[m, i]
-
-    return psi_neg
 
 
 class StatTransportProblem:
@@ -59,20 +18,15 @@ class StatTransportProblem:
         quadrature: SNQuadrature,
         left_boundary: np.ndarray | None = None,
         right_boundary: np.ndarray | None = None,
-        phi_tol: float = 1e-10,
         max_iterations: int = 10_000,
     ) -> None:
         self.mesh = mesh
         self.quadrature = quadrature
-        self.phi_tol = phi_tol
         self.max_iterations = max_iterations
 
         self.n_directions = quadrature.order
         self.n_half = self.n_directions // 2
         self.n_cells = mesh.n_cells
-
-        if self.n_directions % 2 != 0:
-            raise ValueError("quadrature order must be even")
 
         # Separate nodes for positive and negative sweep
         self.mu = quadrature.nodes
@@ -84,6 +38,8 @@ class StatTransportProblem:
         self.h = mesh.h
         self.sigma_t = mesh.Sigma_t
         self.sigma_s = mesh.Sigma_s
+        self.sigma_p = mesh.Sigma_p
+        self.nu_sigma_f = mesh.nu * mesh.Sigma_f
         self.source = mesh.source
 
         # Default boundary condition to vacuum (Dirichlet)
@@ -94,7 +50,7 @@ class StatTransportProblem:
 
         self.left_boundary = np.asarray(left_boundary, dtype=float)
         self.right_boundary = np.asarray(right_boundary, dtype=float)
-        self._validate_inputs()
+        self._validate_boundaries()
 
     def scalar_flux(self, psi: np.ndarray) -> np.ndarray:
         return self.weights @ psi
@@ -102,29 +58,48 @@ class StatTransportProblem:
     def current(self, psi: np.ndarray) -> np.ndarray:
         return (self.weights * self.mu) @ psi
 
+    def criticality_residual(
+        self, psi: np.ndarray, phi: np.ndarray, k_eff: float
+    ) -> float:
+        """Compute the normalized residual of the transport eigenproblem."""
+        psi_values = np.asarray(psi, dtype=float)
+        phi_values = np.asarray(phi, dtype=float)
+        self._validate_psi(psi_values)
+        self._validate_cell_array(phi_values, "phi")
+        if not np.isfinite(k_eff) or k_eff <= 0.0:
+            raise ValueError("k_eff must be finite and strictly positive")
+
+        return float(
+            criticality_residual_numba(
+                psi_values,
+                phi_values,
+                k_eff,
+                self.mu,
+                self.sigma_t,
+                self.sigma_s,
+                self.nu_sigma_f,
+                self.h,
+                self.left_boundary,
+                self.right_boundary,
+            )
+        )
+
     def solve(
         self,
         psi0: np.ndarray | None = None,
         fixed_source: np.ndarray | None = None,
+        source_operator: np.ndarray | None = None,
+        phi_tol: float = 1e-10,
     ) -> TransportStationaryResult:
-        # Start from an isotropic angular flux: psi = phi / 2, with phi = 1.
-        if psi0 is None:
-            psi = 0.5 * np.ones((self.n_directions, self.n_cells))
-        else:
-            psi = np.array(psi0, dtype=float, copy=True)
-            self._validate_psi(psi)
-
-        if fixed_source is None:
-            fixed_source = 0.5 * self.source
-        else:
-            fixed_source = np.asarray(fixed_source, dtype=float)
-            self._validate_cell_array(fixed_source, "fixed_source")
+        psi = self._initial_or_checked_psi(psi0)
+        fixed_source = self._checked_fixed_source(fixed_source)
+        source_operator = self._checked_source_operator(source_operator)
 
         errors: list[float] = []
 
         for iteration in range(1, self.max_iterations + 1):
             phi = self.scalar_flux(psi)
-            source = 0.5 * self.sigma_s * phi + fixed_source
+            source = 0.5 * source_operator * phi + fixed_source
 
             psi_new = self.sweep(source)
 
@@ -137,7 +112,7 @@ class StatTransportProblem:
             errors.append(error)
 
             psi = psi_new
-            if error < self.phi_tol:
+            if error < phi_tol:
                 break
         else:
             raise RuntimeError(
@@ -154,8 +129,63 @@ class StatTransportProblem:
             errors=np.asarray(errors),
             iterations=iteration,
         )
-        self.validate_result(result)
+        result.validate(
+            n_directions=self.n_directions,
+            n_cells=self.n_cells,
+            phi_tol=phi_tol,
+        )
         return result
+
+    def solve_flux_only(
+        self,
+        psi0: np.ndarray | None = None,
+        fixed_source: np.ndarray | None = None,
+        source_operator: np.ndarray | None = None,
+        phi_tol: float = 1e-10,
+        assume_valid: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray, int, float]:
+        """Solve the fixed-source problem and return only psi, phi and error.
+
+        Lightweight path for nested algorithms (transport criticality). Same source iteration and Numba sweeps as
+        solve(), but skips current computation, result construction, full error history, and final result validation. ``assume_valid=True`` also skips input copies and validation and may reuse ``psi0`` as workspace.
+        Intended for trusted nested loops that replace ``psi0`` with the returned array immediately.
+        """
+        if assume_valid:
+            psi = (
+                0.5 * np.ones((self.n_directions, self.n_cells))
+                if psi0 is None
+                else psi0
+            )
+            fixed_source = 0.5 * self.source if fixed_source is None else fixed_source
+            source_operator = (
+                self.sigma_p if source_operator is None else source_operator
+            )
+        else:
+            psi = self._initial_or_checked_psi(psi0)
+            fixed_source = self._checked_fixed_source(fixed_source)
+            source_operator = self._checked_source_operator(source_operator)
+
+        psi, phi, iteration, error = solve_flux_only_numba(
+            psi,
+            fixed_source,
+            source_operator,
+            self.weights,
+            self.mu_pos,
+            self.sigma_t,
+            self.h,
+            self.left_boundary,
+            self.right_boundary,
+            phi_tol,
+            self.max_iterations,
+        )
+
+        if error < phi_tol:
+            return psi, phi, iteration, error
+
+        raise RuntimeError(
+            "SN source iteration did not converge "
+            f"after {self.max_iterations} iterations; last error={error}"
+        )
 
     def sweep(self, source: np.ndarray) -> np.ndarray:
         psi_neg = negative_sweep_numba(
@@ -174,15 +204,7 @@ class StatTransportProblem:
         )
         return np.concatenate((psi_neg, psi_pos), axis=0)
 
-    def _validate_inputs(self) -> None:
-        if self.mu.shape != (self.n_directions,):
-            raise ValueError("quadrature nodes have invalid shape")
-        if self.weights.shape != (self.n_directions,):
-            raise ValueError("quadrature weights have invalid shape")
-        if not np.all(self.mu[: self.n_half] < 0.0):
-            raise ValueError("first half of quadrature nodes must be negative")
-        if not np.all(self.mu[self.n_half :] > 0.0):
-            raise ValueError("second half of quadrature nodes must be positive")
+    def _validate_boundaries(self) -> None:
         if self.left_boundary.shape != (self.n_half,):
             raise ValueError("left_boundary must have size quadrature.order // 2")
         if self.right_boundary.shape != (self.n_half,):
@@ -204,20 +226,28 @@ class StatTransportProblem:
         if not np.all(np.isfinite(values)):
             raise ValueError(f"{name} contains NaN or infinity")
 
-    def validate_result(self, result: TransportStationaryResult) -> None:
-        if not result.is_finite:
-            raise ValueError("transport result contains NaN or infinity")
-        if result.psi.shape != (self.n_directions, self.n_cells):
-            raise ValueError("psi has invalid shape")
-        if result.phi.shape != (self.n_cells,):
-            raise ValueError("phi has invalid shape")
-        if result.current.shape != (self.n_cells,):
-            raise ValueError("current has invalid shape")
-        if result.errors.size != result.iterations:
-            raise ValueError("errors size does not match iterations")
-        if result.errors[-1] > self.phi_tol:
-            raise ValueError(
-                f"transport iteration error too large: {result.errors[-1]}"
-            )
-        if not result.is_positive:
-            raise ValueError("transport solution contains negative values")
+    def _initial_or_checked_psi(self, psi0: np.ndarray | None) -> np.ndarray:
+        if psi0 is None:
+            return 0.5 * np.ones((self.n_directions, self.n_cells))
+
+        psi = np.array(psi0, dtype=float, copy=True)
+        self._validate_psi(psi)
+        return psi
+
+    def _checked_fixed_source(self, fixed_source: np.ndarray | None) -> np.ndarray:
+        if fixed_source is None:
+            return 0.5 * self.source
+
+        values = np.asarray(fixed_source, dtype=float)
+        self._validate_cell_array(values, "fixed_source")
+        return values
+
+    def _checked_source_operator(
+        self, source_operator: np.ndarray | None
+    ) -> np.ndarray:
+        if source_operator is None:
+            return self.sigma_p
+
+        values = np.asarray(source_operator, dtype=float)
+        self._validate_cell_array(values, "source_operator")
+        return values

@@ -1,5 +1,10 @@
 from transport import Material1D, Reactor1D, SNQuadrature, UniformMesh1D
-from transport.sn import StatTransportProblem, TransportStationaryResult
+from transport.sn import (
+    EulerTransportProblem,
+    EulerTransportResult,
+    StatTransportProblem,
+    TransportStationaryResult,
+)
 from transport.diffusion import (
     DiffusionConditions,
     DiffusionStationaryResult,
@@ -17,6 +22,8 @@ __all__ = [
     "DiffusionConditions",
     "DiffusionStationaryResult",
     "DiffusionTimeResult",
+    "EulerTransportProblem",
+    "EulerTransportResult",
     "EulerDiffusionFissionSolver",
     "Material1D",
     "Reactor1D",
