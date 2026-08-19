@@ -8,4 +8,17 @@ wheels/
 
 # Virtual environments
 .venv
-*.md
+ 
+# Latex build files 
+*.log
+*.out
+*.toc
+*.gz
+*.bbl
+*.xml
+*.aux
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.ipynb
