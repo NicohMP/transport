@@ -13,6 +13,8 @@ from transport.mesh import UniformMesh1D
 
 
 class EulerDiffusionFissionSolver:
+    """Implicit Euler solver for diffusion with fission."""
+
     def __init__(
         self,
         mesh: UniformMesh1D,
@@ -22,6 +24,7 @@ class EulerDiffusionFissionSolver:
         phi0: np.ndarray,
         boundary: DiffusionConditions = "extrapolated",
     ) -> None:
+        """Initialize time stepping and factorize the diffusion system."""
         self.boundary: DiffusionConditions = boundary
         self.mesh = mesh
         self.dt = timestep
@@ -34,6 +37,7 @@ class EulerDiffusionFissionSolver:
         self.LU = spla.splu(self.A + sp.diags(self.mass_diag, format="csc") - self.F)
 
     def solve(self):
+        """Compute flux and current histories with implicit Euler."""
         b = self.mesh.h * self.mesh.source
         phi_t = self.phi0
         PHI = np.zeros([self.Nt + 1, self.mesh.n_cells])
@@ -56,6 +60,7 @@ class EulerDiffusionFissionSolver:
         return result
 
     def validate_result(self, result: DiffusionTimeResult, residual_tol=1e-10):
+        """Validate solution shapes, finiteness, and positivity."""
         if not result.is_finite:
             raise ValueError("Diffusion result contains NaN or infinity")
 

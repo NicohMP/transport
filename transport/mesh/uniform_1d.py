@@ -5,6 +5,8 @@ from transport.reactor import Reactor1D
 
 @dataclass(frozen=True)
 class UniformMesh1D:
+    """Uniform one-dimensional mesh with material coefficients."""
+
     n_cells: int
     h: float
     faces: np.ndarray
@@ -16,6 +18,7 @@ class UniformMesh1D:
     source: np.ndarray
 
     def __post_init__(self) -> None:
+        """Validate mesh arrays and material coefficients."""
         values = (self.Sigma_s, self.Sigma_c, self.Sigma_f, self.nu, self.source)
 
         if not all(np.all(np.isfinite(value)) for value in values):
@@ -38,6 +41,7 @@ class UniformMesh1D:
 
     @classmethod
     def from_reactor(cls, reactor: Reactor1D, n_cells: int):
+        """Discretize a reactor with interfaces on mesh faces."""
         # Mesh spatial params
         n_cells = int(n_cells)
         h = 2 * reactor.half_width / n_cells
@@ -73,16 +77,20 @@ class UniformMesh1D:
     # Computed properties
     @property
     def Sigma_t(self) -> np.ndarray:
+        """Return total cross sections per cell."""
         return self.Sigma_f + self.Sigma_c + self.Sigma_s
 
     @property
     def Sigma_a(self) -> np.ndarray:
+        """Return absorption cross sections per cell."""
         return self.Sigma_c + self.Sigma_f
 
     @property
     def Sigma_p(self) -> np.ndarray:
+        """Return scattering and fission production per cell."""
         return self.Sigma_s + self.nu * self.Sigma_f
 
     @property
     def diffusion_coefficient(self) -> np.ndarray:
+        """Return diffusion coefficients per cell."""
         return 1.0 / (3.0 * self.Sigma_t)

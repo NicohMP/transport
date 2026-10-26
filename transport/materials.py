@@ -4,6 +4,8 @@ import math
 
 @dataclass(frozen=True)
 class Material1D:
+    """Homogeneous material coefficients and source."""
+
     # Inherent properties
     sigma_s: float
     sigma_c: float
@@ -12,6 +14,7 @@ class Material1D:
     source: float
 
     def __post_init__(self) -> None:
+        """Validate material coefficients and source."""
         values = (self.sigma_s, self.sigma_c, self.sigma_f, self.nu, self.source)
 
         if not all(math.isfinite(value) for value in values):
@@ -26,16 +29,20 @@ class Material1D:
     # Computed properties
     @property
     def sigma_t(self) -> float:
+        """Return the total cross section."""
         return self.sigma_f + self.sigma_c + self.sigma_s
 
     @property
     def sigma_a(self) -> float:
+        """Return the absorption cross section."""
         return self.sigma_c + self.sigma_f
 
     @property
     def sigma_p(self) -> float:
+        """Return the scattering and fission production coefficient."""
         return self.sigma_s + self.nu * self.sigma_f
 
     @property
     def diffusion_coefficient(self) -> float:
+        """Return the diffusion coefficient."""
         return 1.0 / (3.0 * self.sigma_t)

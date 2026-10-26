@@ -6,6 +6,7 @@ from transport.mesh import UniformMesh1D
 
 
 def harmonic_face_diffusion(mesh: UniformMesh1D) -> np.ndarray:
+    """Compute harmonic diffusion coefficients at mesh faces."""
     harmonic_diffusion = np.zeros_like(mesh.faces)
     harmonic_diffusion[-1] = mesh.diffusion_coefficient[-1]
     harmonic_diffusion[0] = mesh.diffusion_coefficient[0]
@@ -21,14 +22,7 @@ def harmonic_face_diffusion(mesh: UniformMesh1D) -> np.ndarray:
 def assemble_diffusion_loss_matrix(
     mesh: UniformMesh1D, boundary: DiffusionConditions = "extrapolated"
 ) -> sp.csc_matrix:
-    """Assemble the sparse diffusion loss matrix.
-    Args:
-        mesh(UniformMesh1D) : Enriched 1D mesh containing material coefficients
-        boundary(DiffusionConditions) : Diffusion boundary conditions
-
-    Returns:
-        A (scipy.sparse.csc_matrix) : Tridiagonal diffusion loss operator stored in CSC format.
-    """
+    """Assemble the sparse diffusion loss matrix."""
     # Compute harmonic diffusion coefficient at each face
     Dh = harmonic_face_diffusion(mesh)
 
@@ -64,6 +58,7 @@ def assemble_diffusion_loss_matrix(
 def diffusion_current(
     mesh: UniformMesh1D, phi: np.ndarray, boundary: DiffusionConditions = "extrapolated"
 ) -> np.ndarray:
+    """Compute diffusion currents at mesh faces."""
     Dh = harmonic_face_diffusion(mesh)
     currents = np.zeros_like(Dh)
     if boundary == "extrapolated":
@@ -81,4 +76,5 @@ def diffusion_current(
 
 
 def assemble_fission_matrix(mesh: UniformMesh1D) -> sp.dia_matrix:
+    """Assemble the diagonal fission production matrix."""
     return sp.diags(mesh.h * mesh.nu * mesh.Sigma_f, format="csc")

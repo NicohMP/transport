@@ -5,6 +5,8 @@ from transport.materials import Material1D
 
 @dataclass(frozen=True)
 class Reactor1D:
+    """One-dimensional reactor with a core and reflector."""
+
     half_width: float
     core_half_width: float
     speed: float
@@ -12,5 +14,6 @@ class Reactor1D:
     reflector: Material1D
 
     def __post_init__(self) -> None:
+        """Check reactor widths and particle speed."""
         assert self.half_width >= self.core_half_width
         assert self.speed > 0

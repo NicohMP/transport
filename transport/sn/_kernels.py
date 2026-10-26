@@ -17,6 +17,7 @@ def positive_sweep_numba(
     h: float,
     left_boundary: np.ndarray,
 ) -> np.ndarray:
+    """Sweep positive directions from left to right."""
     n_half = mu_pos.size
     n_cells = sigma_t.size
     psi_pos = np.empty((n_half, n_cells))
@@ -40,6 +41,7 @@ def negative_sweep_numba(
     h: float,
     right_boundary: np.ndarray,
 ) -> np.ndarray:
+    """Sweep negative directions from right to left."""
     n_half = mu_neg_abs.size
     n_cells = sigma_t.size
     psi_neg = np.empty((n_half, n_cells))
@@ -69,7 +71,7 @@ def solve_flux_only_numba(
     phi_tol: float,
     max_iterations: int,
 ) -> tuple[np.ndarray, np.ndarray, int, float]:
-    """Run the complete source iteration without crossing into Python."""
+    """Run compiled source iteration for stationary fluxes."""
     n_directions, n_cells = psi.shape
     n_half = n_directions // 2
 
@@ -157,7 +159,7 @@ def criticality_residual_numba(
     left_boundary: np.ndarray,
     right_boundary: np.ndarray,
 ) -> float:
-    """Return ||(T-S)psi-F psi/k||_2 normalized as in the report."""
+    """Compute the normalized transport eigenproblem residual."""
     n_directions, n_cells = psi.shape
     n_half = n_directions // 2
     residual_norm_squared = 0.0
@@ -207,6 +209,7 @@ def instat_positive_sweep_numba(
     h: float,
     left_boundary: np.ndarray,
 ) -> np.ndarray:
+    """Sweep positive directions for an implicit Euler step."""
     n_half = mu_pos.size
     n_cells = sigma_t.size
     psi_pos = np.empty((n_half, n_cells))
@@ -234,6 +237,7 @@ def instat_negative_sweep_numba(
     h: float,
     right_boundary: np.ndarray,
 ) -> np.ndarray:
+    """Sweep negative directions for an implicit Euler step."""
     n_half = mu_neg_abs.size
     n_cells = sigma_t.size
     psi_neg = np.empty((n_half, n_cells))
@@ -266,7 +270,7 @@ def implicit_euler_transport_step_numba(
     phi_tol: float,
     max_iterations: int,
 ) -> tuple[np.ndarray, np.ndarray, int, float]:
-    """Solve one implicit time step while keeping ``psi_n`` unchanged."""
+    """Solve one implicit Euler step while preserving psi_n."""
     n_directions, n_cells = psi_n.shape
     n_half = n_directions // 2
 

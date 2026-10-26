@@ -5,6 +5,8 @@ import numpy as np
 
 @dataclass(frozen=True)
 class TransportStationaryResult:
+    """Stationary transport solution and iteration diagnostics."""
+
     psi: np.ndarray
     phi: np.ndarray
     current: np.ndarray
@@ -13,10 +15,12 @@ class TransportStationaryResult:
 
     @property
     def is_positive(self) -> bool:
+        """Check that angular and scalar fluxes are nonnegative."""
         return bool(np.all(self.psi >= 0.0) and np.all(self.phi >= 0.0))
 
     @property
     def is_finite(self) -> bool:
+        """Check that fluxes, current, and errors are finite."""
         return (
             bool(np.all(np.isfinite(self.psi)))
             and bool(np.all(np.isfinite(self.phi)))
@@ -31,7 +35,7 @@ class TransportStationaryResult:
         n_cells: int,
         phi_tol: float,
     ) -> None:
-        """Validate solution invariants against the originating problem."""
+        """Validate solution arrays and convergence."""
         if not self.is_finite:
             raise ValueError("transport result contains NaN or infinity")
         if self.psi.shape != (n_directions, n_cells):
@@ -52,6 +56,8 @@ class TransportStationaryResult:
 
 @dataclass(frozen=True)
 class EulerTransportResult:
+    """Transient transport histories and convergence diagnostics."""
+
     PSI: np.ndarray
     PHI: np.ndarray
     Current: np.ndarray
@@ -61,10 +67,12 @@ class EulerTransportResult:
 
     @property
     def is_positive(self) -> bool:
+        """Check that angular and scalar fluxes remain nonnegative."""
         return bool(np.all(self.PSI >= 0.0) and np.all(self.PHI >= 0.0))
 
     @property
     def is_finite(self) -> bool:
+        """Check that solution histories and diagnostics are finite."""
         return (
             bool(np.all(np.isfinite(self.PSI)))
             and bool(np.all(np.isfinite(self.PHI)))
@@ -81,7 +89,7 @@ class EulerTransportResult:
         n_cells: int,
         phi_tol: float,
     ) -> None:
-        """Validate solution invariants against the originating problem."""
+        """Validate solution histories, stored steps, and convergence."""
         if not self.is_finite:
             raise ValueError("transport result contains NaN or infinity")
         if self.stored_steps.ndim != 1 or self.stored_steps.size == 0:

@@ -5,10 +5,13 @@ import numpy as np
 
 @dataclass(frozen=True)
 class SNQuadrature:
+    """Symmetric angular quadrature for SN transport."""
+
     nodes: np.ndarray
     weights: np.ndarray
 
     def __post_init__(self) -> None:
+        """Normalize and validate quadrature arrays."""
         nodes = np.asarray(self.nodes, dtype=float)
         weights = np.asarray(self.weights, dtype=float)
 
@@ -36,10 +39,12 @@ class SNQuadrature:
 
     @property
     def order(self) -> int:
+        """Return the number of angular directions."""
         return len(self.nodes)
 
     @classmethod
     def gauss_legendre(cls, order: int) -> "SNQuadrature":
+        """Build an even-order Gauss-Legendre quadrature."""
         if not isinstance(order, int) or order <= 0 or order % 2 != 0:
             raise ValueError("order must be a positive even integer")
 
