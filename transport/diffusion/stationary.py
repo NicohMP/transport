@@ -5,6 +5,7 @@ import scipy.sparse.linalg as spla
 
 from transport.diffusion.operators import (
     assemble_diffusion_loss_matrix,
+    assemble_fission_matrix,
     diffusion_current,
 )
 from transport.diffusion.results import CriticalityResult, DiffusionStationaryResult
@@ -19,11 +20,7 @@ def criticity_factor(
     max_iterations: int = 10_000,
     boundary: DiffusionConditions = "extrapolated",
 ) -> CriticalityResult:
-    """Compute the dominant criticality factor with power iterations.
-
-    The discrete criticality equation is A phi = F phi / k, where A is the
-    diffusion-loss matrix and F = diag(h * nu * Sigma_f).
-    """
+    """Compute diffusion criticality by power iteration."""
     fission_mass = mesh.h * mesh.nu * mesh.Sigma_f
     if not np.any(fission_mass > 0.0):
         raise ValueError("Cannot compute criticality without fission production")
@@ -88,6 +85,7 @@ def criticity_factor(
 
 
 def solve_stationnary_source(mesh: UniformMesh1D, source: np.ndarray) -> np.ndarray:
+    """Solve diffusion for a supplied source vector."""
     A = assemble_diffusion_loss_matrix(mesh)
 
     LU = spla.splu(A)
@@ -96,28 +94,33 @@ def solve_stationnary_source(mesh: UniformMesh1D, source: np.ndarray) -> np.ndar
 
 
 class StatDiffusionSolver:
-    def __init__(
-        self, mesh: UniformMesh1D, boundary: DiffusionConditions = "extrapolated"
-    ) -> None:
-        self.boundary: DiffusionConditions = boundary
-        self.mesh = mesh
-        self.A = assemble_diffusion_loss_matrix(mesh, boundary)
+    """Stationary diffusion solver with fission and a fixed source."""
 
-    def solve(self):
-        b = self.mesh.h * self.mesh.source
-        LU = spla.splu(self.A)
+    def __init__(
+        self, boundary: DiffusionConditions = "extrapolated"
+    ) -> None:
+        """Set diffusion boundary conditions."""
+        self.boundary: DiffusionConditions = boundary
+
+    def solve(self, mesh: UniformMesh1D) -> DiffusionStationaryResult:
+        """Compute stationary flux, current, and balance residual."""
+        A = assemble_diffusion_loss_matrix(mesh, self.boundary)
+        F = assemble_fission_matrix(mesh)
+        b = mesh.h * mesh.source
+        LU = spla.splu(A - F)
         phi = LU.solve(b)
 
         current = diffusion_current(
-            self.mesh,
+            mesh,
             phi,
             boundary=self.boundary,
         )
 
         residual = (
-            (current[1:] - current[:-1]) / self.mesh.h
-            + self.mesh.Sigma_a * phi
-            - self.mesh.source
+            (current[1:] - current[:-1]) / mesh.h
+            + mesh.Sigma_a * phi
+            - mesh.nu * mesh.Sigma_f * phi
+            - mesh.source
         )
 
         result = DiffusionStationaryResult(
@@ -126,21 +129,27 @@ class StatDiffusionSolver:
             balance_residual=residual,
         )
 
-        self.validate_result(result)
+        self.validate_result(mesh, result)
 
         return result
 
-    def validate_result(self, result: DiffusionStationaryResult, residual_tol=1e-10):
+    def validate_result(
+        self,
+        mesh: UniformMesh1D,
+        result: DiffusionStationaryResult,
+        residual_tol: float = 1e-10,
+    ) -> None:
+        """Validate solution arrays, positivity, and balance."""
         if not result.is_finite:
             raise ValueError("Diffusion result contains NaN or infinity")
 
-        if result.phi.shape != (self.mesh.n_cells,):
+        if result.phi.shape != (mesh.n_cells,):
             raise ValueError("phi has invalid shape")
 
-        if result.current.shape != (self.mesh.n_cells + 1,):
+        if result.current.shape != (mesh.n_cells + 1,):
             raise ValueError("current has invalid shape")
 
-        if result.balance_residual.shape != (self.mesh.n_cells,):
+        if result.balance_residual.shape != (mesh.n_cells,):
             raise ValueError("balance_residual has invalid shape")
 
         if result.residual_norm_inf > residual_tol:
