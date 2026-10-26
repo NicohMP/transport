@@ -7,6 +7,8 @@ from transport.sn.results import EulerTransportResult
 
 
 class EulerTransportProblem:
+    """Transient SN transport problem using implicit Euler."""
+
     def __init__(
         self,
         mesh: UniformMesh1D,
@@ -18,6 +20,7 @@ class EulerTransportProblem:
         right_boundary: np.ndarray | None = None,
         max_iterations: int = 10_000,
     ) -> None:
+        """Initialize transport data and time stepping."""
         self.mesh = mesh
         self.quadrature = quadrature
         self.max_iterations = max_iterations
@@ -59,9 +62,11 @@ class EulerTransportProblem:
         self._validate_boundaries()
 
     def scalar_flux(self, psi: np.ndarray) -> np.ndarray:
+        """Integrate angular flux over directions."""
         return self.weights @ psi
 
     def current(self, psi: np.ndarray) -> np.ndarray:
+        """Compute the first angular flux moment."""
         return (self.weights * self.mu) @ psi
 
     def solve(
@@ -71,6 +76,7 @@ class EulerTransportProblem:
         source_operator: np.ndarray | None = None,
         phi_tol: float = 1e-10,
     ) -> EulerTransportResult:
+        """Advance transport and record solution histories."""
         if not np.isfinite(phi_tol) or phi_tol <= 0.0:
             raise ValueError("phi_tol must be finite and strictly positive")
 
@@ -146,6 +152,7 @@ class EulerTransportProblem:
         source_operator: np.ndarray,
         phi_tol: float,
     ) -> tuple[np.ndarray, np.ndarray, int, float]:
+        """Solve one implicit Euler transport step."""
         return implicit_euler_transport_step_numba(
             psi_n=psi_n,
             fixed_source=fixed_source,
@@ -163,6 +170,7 @@ class EulerTransportProblem:
         )
 
     def _validate_time_parameters(self) -> None:
+        """Check velocity, time grid, and iteration limit."""
         values = (self.velocity, self.T, self.dt)
         if not all(np.isfinite(value) for value in values):
             raise ValueError("velocity, endtime and timestep must be finite")
@@ -180,6 +188,7 @@ class EulerTransportProblem:
             raise ValueError("endtime must be an integer multiple of timestep")
 
     def _validate_boundaries(self) -> None:
+        """Check boundary array shapes and finiteness."""
         if self.left_boundary.shape != (self.n_half,):
             raise ValueError("left_boundary must have size quadrature.order // 2")
         if self.right_boundary.shape != (self.n_half,):
@@ -190,18 +199,21 @@ class EulerTransportProblem:
             raise ValueError("right_boundary contains NaN or infinity")
 
     def _validate_psi(self, psi: np.ndarray) -> None:
+        """Check angular flux shape and finiteness."""
         if psi.shape != (self.n_directions, self.n_cells):
             raise ValueError("psi must have shape (quadrature.order, mesh.n_cells)")
         if not np.all(np.isfinite(psi)):
             raise ValueError("psi contains NaN or infinity")
 
     def _validate_cell_array(self, values: np.ndarray, name: str) -> None:
+        """Check a cell array's shape and finiteness."""
         if values.shape != (self.n_cells,):
             raise ValueError(f"{name} must have shape (mesh.n_cells,)")
         if not np.all(np.isfinite(values)):
             raise ValueError(f"{name} contains NaN or infinity")
 
     def _initial_or_checked_psi(self, psi0: np.ndarray | None) -> np.ndarray:
+        """Initialize angular flux or validate and copy psi0."""
         if psi0 is None:
             return 0.5 * np.ones((self.n_directions, self.n_cells))
 
@@ -210,6 +222,7 @@ class EulerTransportProblem:
         return psi
 
     def _checked_fixed_source(self, fixed_source: np.ndarray | None) -> np.ndarray:
+        """Return the default or validated fixed source."""
         if fixed_source is None:
             return self.source
 
@@ -220,6 +233,7 @@ class EulerTransportProblem:
     def _checked_source_operator(
         self, source_operator: np.ndarray | None
     ) -> np.ndarray:
+        """Return the default or validated source operator."""
         if source_operator is None:
             return self.sigma_p
 
