@@ -31,7 +31,7 @@
 
 
 \section{Introduction}
-On s'appuie dans ce document sur toute l'étude menée jusqu'ici pour développer les schémas de résolution numérique des équation de transport, diffusion et criticité dans notre cadre d'étude de plaque infinie monocinétique à collisions isotropes. \\
+On s'appuie dans ce document sur toute l'étude menée jusqu'ici pour développer les schémas de résolution numérique des équations de transport, diffusion et criticité dans notre cadre d'étude de plaque infinie monocinétique à collisions isotropes. Les notions de consistance, stabilité et convergence, les méthodes d'ordonnées discrètes et les algorithmes de criticité suivent principalement les chapitres~5 et~6 de \textcite{Allaire2018}. L'ouvrage de \textcite{Lewis1984} est utilisé en complément pour les méthodes numériques propres au transport neutronique. \\
 Récapitulons les six problèmes principaux en question
 
 \bigskip 
@@ -125,7 +125,7 @@ La variable angulaire $\mu\in[-1,1]$ intervient dans l'équation de transport à
 P\psi = \frac12\int_{-1}^{1}\psi(\mu)\,d\mu. 
 \] 
 
-La discrétisation du problème nécessite donc l'approximation des intégrales sur l'intervalle $[-1,1]$. Pour cela, on introduit une quadrature composée de $M$ directions discrètes 
+La discrétisation du problème nécessite donc l'approximation des intégrales sur l'intervalle $[-1,1]$. Cette construction correspond à la méthode des ordonnées discrètes décrite dans \cite[chap.~5, section~5.2.2]{Allaire2018}. Pour cela, on introduit une quadrature composée de $M$ directions discrètes
 \[ 
 \mu_m\in[-1,1], \qquad 1\le m\le M, 
 \] 
@@ -247,7 +247,7 @@ $(\mu_m,w_m)$ seront propres au solveur de transport. La discrétisation de l'op
 \section {Schéma de diffusion}
 \label{subsec:schema-diffusion}
 
-Avant de discrétiser directement l'équation de transport, on considère l'équation de diffusion comme un premier modèle numérique. Elle permet de valider le maillage, le traitement des interfaces matérielles et la résolution des systèmes linéaires qui seront ensuite réutilisés dans le solveur de transport.
+Avant de discrétiser directement l'équation de transport, on considère l'équation de diffusion comme un premier modèle numérique. Elle permet de valider le maillage, le traitement des interfaces matérielles et la résolution des systèmes linéaires qui seront ensuite réutilisés dans le solveur de transport. Le schéma conservatif adopté est un schéma de volumes finis à deux points; sa construction et son analyse générale sont présentées dans \textcite{Eymard2000}.
 
 On considère le problème stationnaire
 \begin{equation}
@@ -319,7 +319,7 @@ avec
 Le coefficient de diffusion à la face est donc obtenu par une moyenne
 harmonique.
 
-Ce choix est particulièrement important à l'interface cœur-réflecteur, où $D$ est discontinu. Il traduit la continuité du courant
+Ce choix est particulièrement important à l'interface cœur-réflecteur, où $D$ est discontinu. La moyenne harmonique est précisément la transmissibilité obtenue en imposant un courant constant de part et d'autre de la face \cite{Eymard2000}. Elle traduit la continuité du courant
 \[
     D_c\partial_x\phi_c = D_r\partial_x\phi_r
 \]
@@ -343,11 +343,11 @@ Sur un maillage uniforme et dans une région où $D$ est constant, cetterelation
 
 \subsection {Conditions aux limites}
 
-Dans le modèle considéré, on impose des conditions absorbantes
+Dans le modèle considéré, on impose la fermeture diffusante
 \[
     \phi(-L)=\phi_L, \qquad \phi(L)=\phi_R.
 \]
-Pour un réacteur entouré de vide, on prend ici $\phi_L=\phi_R=0.$
+Pour un réacteur entouré de vide, on prend ici $\phi_L=\phi_R=0$. Comme indiqué dans la partie théorique, il s'agit d'une approximation du bord vide; une condition de Marshak ou une frontière extrapolée fournirait une fermeture plus fidèle à la limite de transport \cite[chap.~4, section~4.3]{Allaire2018}.
 
 Les transmissibilités entre les centres des cellules de bord et les extrémités du domaine sont
 \[
@@ -424,7 +424,7 @@ définie positive et le système discret possède une unique solution.
 
 De plus, ses coefficients hors diagonale sont négatifs et ses
 coefficients diagonaux sont positifs. La matrice possède ainsi la
-structure d'une M-matrice. En particulier, si la source et les données
+structure d'une M-matrice \cite[chap.~6, section~6.2]{Allaire2018}. En particulier, si la source et les données
 aux limites sont positives, alors
 \[
     \phi_i\geq0,
@@ -487,7 +487,7 @@ Enfin, la même matrice de diffusion $A_h$ sera utilisée pour le problème de c
 \label{subsec:criticite-diffusion-discrete}
 
 On reprend maintenant le problème stationnaire de criticité étudié dans la
-partie~4 :
+partie~4. Le passage du problème propre continu au problème matriciel, puis son traitement par M-matrices, Perron--Frobenius et itération de puissance, suivent le chapitre~6 de \textcite{Allaire2018}.
 \begin{equation}
     -\partial_x\!\left(D(x)\partial_x\phi(x)\right)
     +\Sigma_a(x)\phi(x)
@@ -644,6 +644,7 @@ positivité du flux. On utilise pour cela la théorie des M-matrices.
         \qquad \forall i,j.
     \]
 \end{theorem}
+Ce critère est une forme symétrique du résultat sur les M-matrices utilisé dans \cite[chap.~6, section~6.2]{Allaire2018}.
 
 La relation d'énergie \eqref{eq:energie-discrete-diffusion} a montré que
 $A_h$ est symétrique définie positive. Ses coefficients hors diagonale
@@ -726,6 +727,7 @@ sont exactement celles de $B_h$.
         |\lambda|<\rho(B).
     \]
 \end{theorem}
+On pourra consulter \cite[chap.~6, section~6.2]{Allaire2018} pour cet énoncé et son application aux matrices de génération neutronique.
 
 On peut appliquer ce théorème à la matrice $B_h$. Il existe donc un
 vecteur $\Phi_{h,c}^\star>0$ tel que
@@ -778,7 +780,7 @@ obtenue pour le problème continu.
 
 \subsection {Itération de puissance}
 
-Le théorème de Perron--Frobenius fournit non seulement l'existence d'un mode fondamental positif, mais suggère également une méthode pour le calculer. On applique pour cela l'itération de puissance à l'opérateur $T_h$.
+Le théorème de Perron--Frobenius fournit non seulement l'existence d'un mode fondamental positif, mais suggère également une méthode pour le calculer. On applique pour cela l'itération de puissance à l'opérateur $T_h$, selon l'algorithme décrit dans \cite[chap.~6, section~6.6.3]{Allaire2018}.
 
 On introduit la production totale de fission associée à un flux discret
 $X$ :
@@ -855,7 +857,7 @@ avec
 \]
 Le terme $\Sigma_p\phi/2$ rassemble ainsi les neutrons produits isotropiquement par diffusion et par fission.
 
-La dépendance angulaire distingue profondément ce problème du modèle de diffusion : pour chaque direction $\mu$, il faut résoudre une équation différentielle différente, toutes ces équations étant couplées par le flux scalaire $\phi$. La méthode des ordonnées discrètes consiste à remplacer cette famille continue de directions par un nombre fini de directions $\mu_m$. On conserve ici la notation $M$ pour le nombre de directions afin de ne pas la confondre avec le nombre $N$ de cellules spatiales, bien que cette méthode soit traditionnellement appelée méthode $S_N$.
+La dépendance angulaire distingue profondément ce problème du modèle de diffusion : pour chaque direction $\mu$, il faut résoudre une équation différentielle différente, toutes ces équations étant couplées par le flux scalaire $\phi$. La méthode des ordonnées discrètes consiste à remplacer cette famille continue de directions par un nombre fini de directions $\mu_m$; sa construction est détaillée dans \cite[chap.~5, section~5.2]{Allaire2018} et dans \textcite{Lewis1984}. On conserve ici la notation $M$ pour le nombre de directions afin de ne pas la confondre avec le nombre $N$ de cellules spatiales, bien que cette méthode soit traditionnellement appelée méthode $S_N$.
 
 \subsection {Passage aux ordonnées discrètes}
 
@@ -897,7 +899,7 @@ Cette construction fournit une première approximation du problème continu : lo
 
 Pour une direction fixée $\mu_m$, le terme $\mu_m\partial_x\psi_m$ décrit une propagation orientée. La valeur du flux dans une cellule dépend donc des valeurs situées en amont de cette cellule, c'est-à-dire du côté d'où proviennent les neutrons.
 
-On choisit pour cette raison un schéma décentré amont, également appelé \textit{step scheme}. Ce choix est cohérent avec la méthode des caractéristiques utilisée dans la partie 1 : dans les deux cas, la solution est reconstruite en suivant le sens de propagation des particules depuis le bord entrant.
+On choisit pour cette raison un schéma décentré amont, également appelé \textit{step scheme}. Ce choix est cohérent avec la méthode des caractéristiques utilisée dans la partie 1 : dans les deux cas, la solution est reconstruite en suivant le sens de propagation des particules depuis le bord entrant. Le schéma et son organisation par balayage sont ceux présentés dans \cite[chap.~5, section~5.2.1]{Allaire2018}.
 
 Introduisons, pour alléger les écritures, la source totale dans la
 cellule $K_i$ et la direction $\mu_m$ :
@@ -1072,7 +1074,7 @@ Cette relation est l'analogue discret exact de la formulation de point fixe du p
 \end{equation}
 Une itération complète demande donc un balayage de gauche à droite pour toutes les directions positives, puis un balayage de droite à gauche pour toutes les directions négatives.
 
-La convergence de cette procédure est régie par le résultat classique suivant.
+La convergence de cette procédure est régie par le résultat classique suivant. Cette itération sur les sources, ainsi que sa dégradation dans les régimes très diffusifs, est analysée dans \cite[chap.~5, section~5.2.3]{Allaire2018}.
 
 \begin{theorem}[Convergence d'une itération linéaire]
     Soit une suite de vecteurs définie par
@@ -1110,7 +1112,7 @@ Le problème de transport discret est ainsi séparé en deux opérations éléme
 \section {Étude du schéma de transport}
 \label{subsec:etude-schema-transport}
 
-On étudie maintenant les propriétés du schéma $S_N$ décentré amont construit dans la section précédente. L'objectif est de vérifier que la solution numérique reste cohérente avec les principales propriétés du problème continu : prise en compte des conditions au bord entrant, positivité de la densité neutronique et conservation du bilan global. On discutera enfin la convergence du schéma lorsque le maillage spatial est raffiné et que le nombre d'ordonnées augmente.
+On étudie maintenant les propriétés du schéma $S_N$ décentré amont construit dans la section précédente. L'objectif est de vérifier que la solution numérique reste cohérente avec les principales propriétés du problème continu : prise en compte des conditions au bord entrant, positivité de la densité neutronique et conservation du bilan global. On discutera enfin la convergence du schéma lorsque le maillage spatial est raffiné et que le nombre d'ordonnées augmente. Le cadre général consistance--stabilité--convergence utilisé dans cette section est celui du chapitre~5 de \textcite{Allaire2018}.
 
 Pour rappeler les notations, le problème discret s'écrit dans chaque cellule $K_i$ et pour chaque direction $\mu_m$ :
 \begin{equation}
@@ -1175,7 +1177,7 @@ où la constante $C$ dépend des dérivées spatiales de $\psi$ et des
 coefficients du problème, mais pas de $h$.
 
 \begin{proposition}[Consistance du schéma $S_N$ amont]
-    Supposons que la solution $\psi$ soit deux fois continûment dérivable par rapport à $x$  suffisamment régulière par rapport à $\mu$. Alors le schéma décentré amont est consistant d'ordre un en espace. De plus,
+    Supposons que la solution $\psi$ soit deux fois continûment dérivable par rapport à $x$ et suffisamment régulière par rapport à $\mu$. Alors le schéma décentré amont est consistant d'ordre un en espace. De plus,
     \[
         \tau_{i,m}^{h,M} \longrightarrow0
     \]
@@ -1372,11 +1374,15 @@ bilan se réduit à
 
 \subsection {Convergence du schéma}
 
-La consistance seule ne suffit pas à assurer la convergence. Le lien entre consistance, stabilité et convergence est donné par le principe classique suivant.
+La consistance seule ne suffit pas à assurer la convergence. Le théorème d'équivalence de Lax--Richtmyer affirme, pour un problème d'évolution linéaire bien posé et un schéma linéaire consistant dans des normes compatibles, que stabilité et convergence sont équivalentes. Pour le problème stationnaire considéré ici, on utilise directement l'argument analogue suivant \cite[chap.~5, section~5.1]{Allaire2018}.
 
-\begin{theorem}[Principe de Lax]
-    Pour un problème linéaire bien posé, un schéma linéaire consistant et stable est convergent. Lorsque l'estimation de stabilité est uniforme par rapport aux paramètres de discrétisation, l'ordre de convergence est celui de l'erreur de consistance.
-\end{theorem}
+\begin{proposition}[Consistance et stabilité uniforme]
+Soit $L_h\Psi_h=Q_h$ le problème discret à source fixée et $I_h\psi$ la restriction d'une solution régulière du problème continu. Si $L_h$ est inversible et si $\|L_h^{-1}\|\leq C$ indépendamment de $h$, alors
+\[
+\|I_h\psi-\Psi_h\|\leq C\|L_hI_h\psi-Q_h\|.
+\]
+Le schéma converge donc dès que son erreur de consistance tend vers zéro. Si cette erreur est d'ordre $h$ dans la norme retenue, l'erreur globale est elle aussi d'ordre $h$.
+\end{proposition}
 
 Considérons d'abord un nombre $M$ fixé de directions. Le système $S_N$ est alors un système fini d'équations de transport. Le schéma amont est consistant d'ordre un en espace et l'estimation \eqref{eq:stabilite-Linf-upwind} fournit une stabilité indépendante de $h$. Pour un problème à source fixée et une solution suffisamment régulière, on s'attend donc à
 \begin{equation}
@@ -1425,7 +1431,7 @@ On obtient finalement un schéma à la fois consistant, positif et conservatif. 
 \section {Problème de criticité en transport}
 \label{subsec:criticite-transport}
 
-On cherche maintenant à transposer au modèle de transport la démarche suivie pour le problème de criticité en diffusion. Dans l'équation stationnaire à source étudiée précédemment, le coefficient
+On cherche maintenant à transposer au modèle de transport la démarche suivie pour le problème de criticité en diffusion. La formulation propre et l'algorithme emboîté suivis ici reprennent \cite[chap.~6, sections~6.5.2 et~6.6.3]{Allaire2018}. Dans l'équation stationnaire à source étudiée précédemment, le coefficient
 \[
     \Sigma_p=\Sigma_s+\nu\Sigma_f
 \]
@@ -1548,7 +1554,7 @@ Comme l'opérateur de fission $\mathcal F_h$ est lui aussi positif, l'opérateur
     \mathcal G_h = \mathcal A_h^{-1}\mathcal F_h \geq0.
 \]
 
-Le théorème de Perron--Frobenius énoncé dans la section~5.4 peut donc être appliqué à l'opérateur de génération, après restriction aux cellules fissiles comme dans le cas de la diffusion. Il existe une valeur propre dominante réelle et positive, associée à un mode fondamental positif. Le facteur de multiplication effectif discret est ainsi donné par
+La positivité de $\mathcal G_h$ suffit à assurer, en dimension finie, que son rayon spectral est associé à un vecteur propre non négatif. Pour obtenir en outre un mode strictement positif, une valeur propre simple et une stricte domination spectrale, il faut vérifier que la matrice de génération restreinte aux degrés de liberté fissiles est irréductible, ou mieux primitive. Cette propriété dépend de la connectivité du maillage, des directions de quadrature et du couplage créé par la diffusion. Sous ces hypothèses de communication, le théorème de Perron--Frobenius énoncé dans la section~5.4 s'applique et fournit une valeur propre dominante réelle et positive, associée à un mode fondamental positif. Le facteur de multiplication effectif discret est alors donné par
 \begin{equation}
     \boxed{
         k_{\mathrm{eff},h} = \rho(\mathcal G_h)
@@ -1560,12 +1566,12 @@ Ce résultat constitue l'analogue en transport de la caractérisation spectrale 
 
 \subsection {Structure générale de l'algorithme}
 
-La méthode de puissance permet de calculer la valeur propre dominante de $\mathcal G_h$ sans former explicitement cet opérateur. Une application de $\mathcal G_h$ consiste à construire une source de
+La méthode de puissance permet de calculer la valeur propre dominante de $\mathcal G_h$ sans former explicitement cet opérateur. Sa convergence vers un mode unique repose sur la simplicité et la stricte domination de la valeur propre de Perron évoquées ci-dessus \cite[chap.~6, section~6.6.3]{Allaire2018}. Une application de $\mathcal G_h$ consiste à construire une source de
 fission, puis à résoudre un problème stationnaire de transport avec diffusion. Cette résolution est elle-même effectuée par une itération sur les sources. L'algorithme possède donc deux niveaux :
 
 \begin{itemize}
     \item une itération externe, qui met à jour la source de fission et le facteur $k_h$ ;
-    \item une itération interne, qui résout le problème de transport àsource de fission fixée en faisant converger la source de diffusion.
+    \item une itération interne, qui résout le problème de transport à source de fission fixée en faisant converger la source de diffusion.
 \end{itemize}
 
 On introduit la production totale de fission associée à un flux angulaire discret :
@@ -1768,5 +1774,7 @@ se traduit ainsi directement par les trois niveaux de calcul qui structureront l
         \;\longrightarrow\; \text{itération sur la diffusion}
         \;\longrightarrow\; \text{balayages de transport}.}
 \]
+
+\printbibliography
 
 \end{document}

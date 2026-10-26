@@ -37,6 +37,8 @@ L'objectif de ce travail est d'étudier l'équilibre neutronique dans un réacte
 
 Une description fidèle de ces phénomènes repose sur l'équation de transport neutronique, qui dépend simultanément du temps, de la position et de la direction des particules. Cependant, la complexité de ce modèle rend délicate son analyse théorique comme sa résolution numérique.
 
+Le cadre physique et mathématique adopté dans ce mémoire suit principalement le cours de transport et diffusion de Grégoire Allaire, Xavier Blanc, Bruno Després et François Golse \cite{Allaire2018}. Les ouvrages de référence \cite{Duderstadt1976,Stacey2018} sont utilisés en complément pour les notions propres à la physique des réacteurs.
+
 L'objectif sera donc double :
 \begin{itemize}
     \item construire progressivement un modèle mathématique décrivant la dynamique des neutrons ;
@@ -61,12 +63,13 @@ f : \mathbb{R}^*_+ \times D \times \mathbb{R}^3
 
 \section{Construction du modèle de transport}
 On note \(\widehat v=\frac{v}{|v|}\) la direction de propagation du neutron. Les coefficients $\Sigma_a$, $\Sigma_s$ et $\Sigma_t$ sont interprétés comme des sections efficaces macroscopiques, c'est-à-dire comme des taux par unité de longueur parcourue.
+La construction par bilan local et la réduction neutronique qui suivent sont adaptées du chapitre~1 de \textcite{Allaire2018}; on pourra également consulter \textcite{BellGlasstone1970} pour leur interprétation physique.
 \subsection{Bilan local sans collisions}
 
 Soit $t \geq 0$. On considère un domaine spatial mesurable $A \subset D$ et un ensemble mesurable de vitesses $B \subset \mathbb{R}^3$.
 La quantité totale de neutrons dans $A \times B$ est :
 \[
-N_{A,B}(t) = \int_A \int_B f(t,x,v),dv,dx.
+N_{A,B}(t) = \int_A \int_B f(t,x,v)\,dv\,dx.
 \]
 
 La variation de cette quantité entre deux instants $t_1 < t_2$ est naturellement
@@ -75,10 +78,10 @@ La variation de cette quantité entre deux instants $t_1 < t_2$ est naturellemen
 N_{A,B}(t_2)-N_{A,B}(t_1)
 &=
 \int_A\int_B
-\bigl(f(t_2,x,v)-f(t_1,x,v)\bigr),dv,dx \
+\bigl(f(t_2,x,v)-f(t_1,x,v)\bigr)\,dv\,dx \\
 &=
 \int_{t_1}^{t_2}\int_A\int_B
-\partial_t f(t,x,v),dv,dx,dt.
+\partial_t f(t,x,v)\,dv\,dx\,dt.
 \end{aligned}
 \]
 
@@ -87,9 +90,10 @@ Les phénomènes faisant varier cette quantité sont :
 \paragraph{La fuite de neutrons par la frontière de $A$.} Soit $v \in B$. On note, pour tout $x \in \partial A$, $n_x$ le vecteur normal extérieur à $A$ en $x$. Sous conditions de régularité de $\partial A$ ($A$ de bord $C^1$), la quantité algébrique de neutrons sortant de $A$ à vitesse $v$ sur l’intervalle de temps $[t_1,t_2]$ est
 \[
 \int_{t_1}^{t_2}\int_{\partial A}
-|v|f(t,x,v)\widehat v\cdot n_x\,dS(x)\,dt= 
+f(t,x,v)v\cdot n_x\,dS(x)\,dt
+=
 \int_{t_1}^{t_2}\int_A
-|v|\widehat v\cdot\nabla_x f(t,x,v)\,dx\,dt\,dv.
+v\cdot\nabla_x f(t,x,v)\,dx\,dt.
 \]
 
 où l’on a utilisé la formule de Green et le fait que $v$ est indépendant de $x$. \
@@ -97,7 +101,7 @@ La quantité totale de neutrons ayant fui par les bords est donc
 
 \[
 \int_B\int_{t_1}^{t_2}\int_A
-|v|\widehat v\cdot\nabla_x f(t,x,v)\,dx\,dt,
+v\cdot\nabla_x f(t,x,v)\,dx\,dt\,dv.
 \]
 
 \vspace{0.5cm}
@@ -105,7 +109,7 @@ La quantité totale de neutrons ayant fui par les bords est donc
 \paragraph{L’absorption} : on suppose que les neutrons de vitesse $v \in B$ peuvent être absorbés par le matériau en $x \in A$ au taux $\Sigma_a(x,v)$. Entre $t_1$ et $t_2$, le nombre de neutrons absorbés est :
 \[
 \int_{t_1}^{t_2}\int_A\int_B
-|v|\Sigma_a(x,v)f(t,x,v)
+|v|\Sigma_a(x,v)f(t,x,v)\,dv\,dx\,dt.
 \]
 
 \paragraph{Une source externe} Notons $q(t,x,v)$ la densité de neutrons introduits par la source externe. De même que pour l’absorption, le nombre total de neutrons introduits par la source entre $t_1$ et $t_2$ est
@@ -115,22 +119,28 @@ La quantité totale de neutrons ayant fui par les bords est donc
 \]
 
 Le bilan total donne donc
-\begin{gather}
-    N_{A,B}(t_2)-N_{A,B}(t_1) = \int_{t_1}^{t_2}\int_A\int_B |v|\left(q-\Sigma_a f-\widehat v\cdot\nabla_x f\right)\,dvdxdt \\
-    =\int_{t_1}^{t_2}\int_A\int_B 
-    \left(\partial_t f + |v|\Sigma_a f + |v|\widehat v\cdot\nabla_x f - |v|q \right) \,dv\,dx\,dt
-\end{gather}
+\[
+\int_{t_1}^{t_2}\int_A\int_B
+\left(\partial_t f+v\cdot\nabla_x f+|v|\Sigma_a f-|v|q\right)
+\,dv\,dx\,dt=0.
+\]
 
 Cette intégrale est nulle pour tout choix de $A,B,[t_1,t_2]$ seulement si son intégrande est nul presque partout dans l’espace des phases, ce qui donne
 \begin{equation}
-    \partial_t f+\Sigma_a f+v\cdot\nabla_x f=q.
+    \partial_t f+v\cdot\nabla_x f+|v|\Sigma_a f=|v|q.
+\end{equation}
+En divisant par $|v|$, on obtient la forme qui sera utilisée dans la réduction monocinétique :
+\begin{equation}
+\frac1{|v|}\partial_t f+\widehat v\cdot\nabla_x f+\Sigma_a f=q.
+\label{eq:transport-cinetique}
 \end{equation}
 
 \subsection{Méthode des caractéristiques}
+La méthode des caractéristiques employée ici est celle développée pour l'équation de transport libre dans \cite[chap.~2, sections~2.1--2.2]{Allaire2018}.
 
 Considérons le problème sans conditions de limites
 \[
-\frac{1}{|v|}\partial_t f+\Sigma_a f+v\cdot\nabla_x f=q,
+\frac{1}{|v|}\partial_t f+\widehat v\cdot\nabla_x f+\Sigma_a f=q,
 \]
 auquel on ajoute la condition initiale $f^{in}$ continue vérifiant
 \[
@@ -146,16 +156,16 @@ On va appliquer pour le résoudre la méthode des caractéristiques : on consid�
 On a
 \[
 \frac{d f(t,\gamma(t),v)}{dt} =\partial_t f(t,\gamma(t),v) + v\cdot\nabla_x f(t,\gamma(t),v)
-= -\Sigma_a(t,\gamma(t),v)f(t,\gamma(t),v) + q(t,\gamma(t),v).
+= -|v|\Sigma_a(t,\gamma(t),v)f(t,\gamma(t),v) + |v|q(t,\gamma(t),v).
 \]
 
 Soit, en posant pour tout choix de $x,v$,
 \[
 u:t\longmapsto f(t,\gamma(t),v),
 \qquad
-a:t\longmapsto \Sigma_a(t,\gamma(t),v),
+a:t\longmapsto |v|\Sigma_a(t,\gamma(t),v),
 \qquad
-\kappa:t\longmapsto q(t,\gamma(t),v),
+\kappa:t\longmapsto |v|q(t,\gamma(t),v),
 \]
 on obtient
 \[
@@ -174,15 +184,15 @@ Ce qui donne, en développant les définitions de $u,a,\kappa$,
 \begin{align*}
     u(t)&=u(0)e^{-\int_0^t a(s),ds}+e^{-\int_0^t a(s),ds}\int_0^t e^{\int_0^s a(r),dr}\kappa(s),ds,\\
     &=u(0)e^{-\int_0^t a(s),ds}+\int_0^te^{-\int_s^t a(r),dr}\kappa(s),ds,\\
-    f(t,x+tv,v)&=f^{in}(x,v)e^{-\int_0^t\Sigma_a(s,x+sv,v),ds}\\
-    &\quad+\int_0^t e^{-\int_s^t \Sigma_a(r,x+rv,v),dr} q(s,x+sv,v)\,ds.
+    f(t,x+tv,v)&=f^{in}(x,v)e^{-\int_0^t|v|\Sigma_a(s,x+sv,v)\,ds}\\
+    &\quad+\int_0^t |v|e^{-\int_s^t |v|\Sigma_a(r,x+rv,v)\,dr} q(s,x+sv,v)\,ds.
 \end{align*}
 
 En appliquant le changement de variable $x\longmapsto x-tv$, on obtient la solution générale:
 \[
 \begin{aligned}
-    f(t,x,v) &= f^{in}(x-tv,v)e^{-\int_0^t\Sigma_a\bigl(s,x-(ts)v,v\bigr)\,ds}\\
-    &\quad+\int_0^te^{-\int_s^t\Sigma_a\bigl(r,x-(t-r)v,v\bigr)\,dr} q\bigl(s,x-(t-s)v,v\bigr),ds.
+    f(t,x,v) &= f^{in}(x-tv,v)e^{-\int_0^t|v|\Sigma_a\bigl(s,x-(t-s)v,v\bigr)\,ds}\\
+    &\quad+\int_0^t |v|e^{-\int_s^t|v|\Sigma_a\bigl(r,x-(t-r)v,v\bigr)\,dr} q\bigl(s,x-(t-s)v,v\bigr)\,ds.
 \end{aligned}
 \]
 
@@ -232,6 +242,7 @@ Par conséquent,
 \]
 
 \subsubsection{Équation de Boltzmann linéaire}
+L'écriture gain--perte de l'opérateur de collision et l'analyse du problème de Boltzmann linéaire sont présentées en détail dans \cite[chap.~3]{Allaire2018}; voir aussi \textcite{CaseZweifel1967} dans un cadre plus général.
 
 En combinant le bilan de transport et le bilan de collisions diffusantes, on obtient
 \[
@@ -261,7 +272,7 @@ v=v_0\omega, \qquad \omega\in\mathbb{S}^2.
 
 La direction $\omega$ est repérée par
 \[
-\omega(\cos\theta,\sin\theta\cos\varphi,\sin\theta\sin\varphi).
+\omega=(\cos\theta,\sin\theta\cos\varphi,\sin\theta\sin\varphi).
 \]
 
 On note
@@ -333,8 +344,6 @@ P:\psi\longmapsto \frac12\int_{-1}^1\psi\,d\mu
 
 Propriétés : $P$ est linéaire par linéarité de l’intégrale et $P^2=P$.
 
-\textit{Faut-il se lancer dans l’étude approfondie avec l’opérateur de Fredholm dès maintenant ?}
-
 On peut alors réécrire notre bilan azimutal sur l’équation de Boltzmann linéaire avec collisions diffusantes sous la forme
 \begin{equation}
     \frac1{v_0}\partial_t\psi + \mu\partial_x\psi + \Sigma_t\psi =\Sigma_sP\psi+q,
@@ -371,43 +380,19 @@ et le courant neutronique
     J(t,x) =\int_{-1}^1 \mu\psi(t,x,\mu)\,d\mu =\left\langle\mu\psi\right\rangle.
 \end{equation}
 
-On a donc
-\begin{align*}
-    \frac1{v_0}\int_{-1}^1 \partial_t\psi\,d\mu + \int_{-1}^1\mu\partial_x\psi\,d\mu + \Sigma_t \int_{-1}^1\psi,d\mu 
-    &= \frac12(\Sigma_s+\nu\Sigma_f)\int_{-1}^1\langle\psi\rangle \,d\mu + \int_{-1}^1q\,d\mu,\\
-    \langle\mu\partial_x\psi\rangle + \Sigma_t\langle\psi\rangle &=
-    \frac12(\Sigma_s+\nu\Sigma_f) \langle\langle\psi\rangle\rangle + \langle q\rangle.
-\end{align*}
-
-\begin{propriete}
-    La moyenne angulaire
+Sous les hypothèses de régularité qui permettent de commuter les intégrales angulaires avec les dérivées, l'intégration de l'équation de transport donne directement
 \[
-\varphi \longmapsto \left\langle\varphi\right\rangle(t,x)
-=\int_{-1}^1 \varphi(t,x,\mu),d\mu
+\frac1{v_0}\partial_t\phi+\partial_xJ+\Sigma_t\phi
+=(\Sigma_s+\nu\Sigma_f)\phi+Q,
+\qquad
+Q(t,x)=\int_{-1}^1q(t,x,\mu)\,d\mu.
 \]
-
-est un opérateur linéaire. Par ailleurs,
-\[ \forall\varphi, \qquad \langle\langle\varphi\rangle\rangle
-=2\left\langle\varphi\right\rangle.
+En effet, le terme de droite est indépendant de $\mu$ et son intégrale sur $[-1,1]$ vaut
+\[
+\int_{-1}^1\frac12(\Sigma_s+\nu\Sigma_f)\phi\,d\mu
+=(\Sigma_s+\nu\Sigma_f)\phi.
 \]
-\end{propriete}
-
-\begin{itemize}
-    \item variation temporelle : $\mu\longmapsto\psi(t,x,\mu)$ étant intégrable et continue pour tout choix de $x,t$, et $\psi$ étant dérivable par rapport à $t$,
-    \(
-    \int_{-1}^1\partial_t\psi,d\mu =\partial_t\phi;
-    \)
-    \item transport : par intégrabilité et dérivabilité selon $x$,
-    \(\left\langle\mu\partial_x\psi\right\rangle =\partial_x\left\langle\mu\psi\right\rangle =\partial_xJ;\)
-
-    \item diffusion collisionnelle : \( \Sigma_t\phi-\Sigma_s\phi (\Sigma_c+\Sigma_f)\phi.\)\\
-    Ce résultat s’interprète physiquement par le fait que les collisions diffusantes n’influent pas sur le nombre total de neutrons, seulement sur leur distribution de directions ;
-
-    \item capture et fission :
-    \( (\Sigma_c+\Sigma_f)\phi-\nu\Sigma_f\phi =\bigl(\Sigma_c+\Sigma_f(1-\nu)\bigr)\phi\)
-
-    \item source externe : on note \(Q=\left\langle q\right\rangle.\)
-\end{itemize}
+Les termes de diffusion $\Sigma_s\phi$ se compensent alors entre les deux membres. Il reste la capture et le bilan net de fission.
 
 Finalement, on obtient une équation bilan :
 \begin{equation}
@@ -501,8 +486,8 @@ P^2\varphi = \frac12 \int_{-1}^1(P\varphi)(x)\,d\mu =P\varphi.
 Ainsi, $P\varphi\in X$ et $P$ est bien un endomorphisme continu, donc un projecteur.
 
 \begin{proposition}[Décomposition isotrope]
-    $P$ est le projecteur sur l’ensemble des fonctions constantes en $\mu$ pour le produit scalaire canonique
-    \[ (f,g)_\mu =\int_{-1}^1 f(\mu)g(\mu),d\mu.\]
+    Pour tout $1\leq p\leq+\infty$, $P$ est un projecteur continu de $L^p(\Omega\times[-1,1])$ sur le sous-espace des fonctions indépendantes de $\mu$. Dans le cas particulier $p=2$, il s'agit du projecteur orthogonal pour le produit scalaire
+    \[ (f,g)_{L^2}=\int_\Omega\int_{-1}^1 f(x,\mu)g(x,\mu)\,d\mu\,dx.\]
     Toute fonction $\varphi$ de $X$ peut donc être décomposée en
     \[\varphi =P\varphi+(I-P)\varphi,\]
     respectivement sa partie isotrope et sa partie anisotrope de moyenne nulle.
@@ -537,21 +522,26 @@ Ainsi, toute fonction constante appartient à $\operatorname{Im}(P)$ et, par dou
 
 \bigskip
 
-(ii) (Décomposition et orthogonalité) On décompose $\varphi$ en \(\varphi =P\varphi+(I-P)\varphi,\) avec \(P\varphi\in\operatorname{Im}(P)\) et
+(ii) (Décomposition) On décompose $\varphi$ en \(\varphi =P\varphi+(I-P)\varphi,\) avec \(P\varphi\in\operatorname{Im}(P)\) et
 \[P(I-P)\varphi =P\varphi-P^2\varphi =0,\]
 soit \((I-P)\varphi\in\ker(P).\)
 
 \medskip
 
-Soient $u\in\operatorname{Im}(P)=\mathcal C$, avec $u:(x,\mu)\longmapsto g(x),$ et $v\in\ker(P)$. Alors
-\[(u,v)_\mu =\int_{-1}^1 g\,v\,d\mu =g\int_{-1}^1v\,d\mu\]
-
-D’où
-\[\operatorname{Im}(P)\oplus\ker(P),\]
-et $P$ est bien le projecteur sur l’ensemble des fonctions constantes en $\mu$. De plus, l’orthogonalité de $P$ assure l’unicité de la décomposition en partie isotrope et anisotrope.
+Lorsque $p=2$, soient $u\in\operatorname{Im}(P)$, de la forme $u(x,\mu)=g(x)$, et $v\in\ker(P)$. Alors
+\[
+(u,v)_{L^2}
+=\int_\Omega g(x)\left(\int_{-1}^1v(x,\mu)\,d\mu\right)dx
+=0.
+\]
+D'où
+\[X=\operatorname{Im}(P)\oplus\ker(P).\]
+Cette somme directe assure l'unicité de la décomposition. Le calcul précédent montre en outre que, lorsque $p=2$, $\operatorname{Im}(P)$ et $\ker(P)$ sont orthogonaux. Ces propriétés de la moyenne angulaire sont celles utilisées dans les estimations du chapitre~3 de \textcite{Allaire2018}.
 
 \subsection{Transport libre}
 \label{subsec:Transport libre}
+
+Les résultats de cette section reprennent, dans la géométrie plaque, la résolution du problème aux limites de transport libre donnée dans \cite[chap.~2]{Allaire2018}.
 
 \subsubsection{Formulation intégrale}
 
@@ -564,16 +554,13 @@ On se place d'abord dans le problème de transport linéaire découplé à sourc
 \end{cases}
 \]
 
-On reprend alors la méthode des caractéristiques introduite en 1.2, en supposant
+On reprend alors la méthode des caractéristiques introduite précédemment, en supposant
 \(\Sigma_t\in L^\infty(\Omega)\)
-pour que les intégrales introduites soient bien définies. Prenons sans perte de généralité $\mu>0$. En remontant le long d’une caractéristique
-\(\quad(s,x-(t-s)v_0\mu,\mu), \qquad 0\leq s\leq t,\)\\
-on distingue deux cas limites :
-\begin{itemize}
-    \item (1) On a \(x-v_0\mu(t-s)=-L\) pour un certain $s>0$. Dans ce cas, la caractéristique atteint le bord entrant. Alors
-    \[t-s =\frac{x+L}{v_0\mu} \quad \text{et} \quad t> \frac{x+L}{v_0\mu}.\]
-    \item (2) La caractéristique atteint le temps initial avant le bord entrant. Dans ce cas,\(\quad t<\frac{x+L}{v_0\mu}.\)
-\end{itemize}
+pour que les intégrales introduites soient bien définies. Pour $\mu\neq0$, on remonte la caractéristique
+\[
+s\longmapsto \bigl(s,x-v_0\mu(t-s),\mu\bigr),
+\qquad 0\leq s\leq t.
+\]
 
 On pose
 \[
@@ -586,22 +573,23 @@ On pose
     & \mu<0,
 \end{cases}
 \]
-le temps de sortie rétrograde, avec la convention que la caractéristique correspondant à $\mu=0$ n'atteint jamais le bord spatial.
-Dans le cas (1), la condition initiale de l’EDO donnée par la méthode des caractéristiques et la condition de bord est
-\[
-\begin{aligned}
-    f(t,x,\mu) &= f^b\bigl(t-\tau(x,\mu),-L,\mu\bigr) e^{-v_0 \int_{t-\tau(x,\mu)}^t \Sigma_t\bigl(x-(t-s)v_0\mu\bigr),ds} \\
-    &\quad +v_0 \int_{t-\tau(x,\mu)}^t e^{(-v_0\int_s^t\Sigma_t\bigl(x-(t-r)v_0\mu\bigr),dr } S\bigl(s,x-(t-s)v_0\mu,\mu\bigr),ds.
-\end{aligned}
-\]
-
-Dans le cas (2), on retrouve exactement le cas de la partie 1.2. En combinant les deux cas, on obtient la solution générale :
-\begin{align*}
-    f(t,x,\mu) &= \mathbb{1}_{t>\tau(x,\mu)} f^b(t-\tau(x,\mu),x_b(\mu),\mu)e^{-v_0\int_{t-\tau(x,\mu)}^t\Sigma_t(x-(t-s)v_0\mu)\,ds} \\
-    & \quad+ \mathbb{1}_{t\leq\tau(x,\mu)} f^{in}(x-v_0\mu t,\mu) e^{-v_0\int_0^t\Sigma_t(x-(t-s)v_0\mu),ds} \\
-    &\quad+ v_0\int_{(t-\tau(x,\mu))_+}^{t} e^{-v_0\int_s^t \Sigma_t(x-(t-r)v_0\mu)\,dr}S(s,x-(t-s)v_0\mu,\mu),ds,
-    \label{Formulation intégrale solution de l'équation de transport libre}
-\end{align*}
+le temps de sortie rétrograde. On pose également $s_0=(t-\tau(x,\mu))_+$. Lorsque $t>\tau(x,\mu)$, la caractéristique atteint le bord entrant au temps $t-\tau(x,\mu)$; sinon elle atteint le temps initial. La formule des caractéristiques s'écrit alors, pour presque tout $\mu\neq0$,
+\begin{align}
+    f(t,x,\mu)
+    ={}&\mathbb{1}_{\{t>\tau(x,\mu)\}}
+    f^b(t-\tau(x,\mu),x_b(\mu),\mu)
+    \exp\!\left(-v_0\int_{t-\tau(x,\mu)}^t
+    \Sigma_t(x-v_0\mu(t-r))\,dr\right) \\
+    &+\mathbb{1}_{\{t\leq\tau(x,\mu)\}}
+    f^{in}(x-v_0\mu t,\mu)
+    \exp\!\left(-v_0\int_0^t
+    \Sigma_t(x-v_0\mu(t-r))\,dr\right) \\
+    &+v_0\int_{s_0}^{t}
+    \exp\!\left(-v_0\int_s^t
+    \Sigma_t(x-v_0\mu(t-r))\,dr\right)
+    S(s,x-v_0\mu(t-s),\mu)\,ds.
+    \label{eq:formule-transport-libre}
+\end{align}
 où
 \[
 x_b(\mu) = 
@@ -610,10 +598,13 @@ x_b(\mu) =
     L,&\mu<0.
 \end{cases}
 \]
+La direction $\mu=0$, de mesure angulaire nulle, vérifie une équation différentielle en temps sans transport spatial et ne joue aucun rôle dans les estimations intégrales qui suivent.
 
 On appelle solution intégrale, ou solution mild, du problème de transport libre toute fonction vérifiant la formule ci-dessus presque partout. Cette définition ne suppose pas, à ce stade, que les dérivées apparaissant dans l'équation de transport existent au sens classique. 
 
-\textit{Discuter, sous des hypothèses supplémentaires de régularité sur les données et les coefficients, les conditions sous lesquelles la solution intégrale est également une solution faible, forte ou classique de l'équation de transport.}
+\begin{remark}
+La formule intégrale fournit le cadre naturel pour des données seulement bornées. Si les données initiales et de bord satisfont les conditions de compatibilité au bord entrant et si $\Sigma_t$ et $S$ possèdent les régularités nécessaires le long des caractéristiques, cette solution intégrale est également une solution forte, puis classique lorsque les dérivées sont continues. Pour des données moins régulières, l'équivalence avec la formulation faible s'obtient par approximation; voir \cite[chap.~2, section~2.3]{Allaire2018}.
+\end{remark}
 
 \subsubsection{Caractère borné}
 
@@ -626,7 +617,7 @@ En effet, pour tout choix de \((t,x,\mu)\in[0,T]\times\Omega\times[-1,1],\)
 \begin{itemize}
     \item sous l’hypothèse $\Sigma_t\geq0$, on borne tout facteur d’atténuation par
 \[
-0 < e^{ -v_0\int_s^t\Sigma_t\bigl(x-(t-r)v_0\mu\bigr),dr} \leq 1
+0 < \exp\!\left(-v_0\int_s^t\Sigma_t\bigl(x-v_0\mu(t-r)\bigr)\,dr\right) \leq 1
 \]
 
     \item on majore les contributions des conditions limites par
@@ -637,7 +628,7 @@ En effet, pour tout choix de \((t,x,\mu)\in[0,T]\times\Omega\times[-1,1],\)
 
 \item supposant la source externe également bornée, on a    
     \[ 
-    \int_{(t-\tau(x,\mu))+}^t e^{-v_0\int_s^t\Sigma_t(x-(t-r)v_0\mu),dr} \left| S(s,x-(t-s)v_0\mu,\mu) \right| \,ds 
+    \int_{(t-\tau(x,\mu))_+}^t \exp\!\left(-v_0\int_s^t\Sigma_t(x-v_0\mu(t-r))\,dr\right) \left| S(s,x-v_0\mu(t-s),\mu) \right| \,ds
     \leq T||S||_{L^\infty}.
     \]
 \end{itemize}
@@ -646,8 +637,7 @@ On en déduit que la solution du problème de transport libre est bornée sous c
 \begin{equation}
     \sup_{[0,T]\times\Omega\times[-1,1]} |f|
     \leq \max\left(||f^b||_{L^\infty},||f^{in}||_{L^\infty}\right)
-    +v_0T||S||
-    _{L^\infty}.
+    +v_0T||S||_{L^\infty}.
 \end{equation}
 
 \textit{Interprétation physique pour source nulle, analyse de la dépendance en T}
@@ -694,12 +684,7 @@ Cette extension vérifie encore
 \leq\|\varphi\|_{L^\infty([0,T]\times\Omega\times[-1,1])}.
 \]
 
-On note $h$ la solution du problème de transport libre homogène ($S=0$), pour les données $\psi^{in},\psi^b$, qui vérifie d’après ce qui précède
-\begin{align*}
-    h(t,x,\mu) &= \mathbb{1}_{t>\tau(x,\mu)} \psi^b\bigl(t-\tau(x,\mu),x_b(\mu),\mu\bigr) e^{-v_0\int{t-\tau(x,\mu)}^t\Sigma_t\bigl(x-(t-s)v_0\mu\bigr)\,ds} \\
-    &\quad + \mathbb{1}_{t\leq\tau(x,\mu)} \psi^{in}(x-v_0\mu t,\mu)
-    e^{-v_0 \int_0^t\Sigma_t\bigl(x-(t-s)v_0\mu\bigr)\,ds}.
-\end{align*}
+On note $h$ la solution du problème de transport libre homogène ($S=0$), pour les données $\psi^{in},\psi^b$. Elle est donnée par la formule précédente après suppression du terme d'intégrale contenant $S$.
 
 et on pose l’opérateur intégral \(\quad \mathcal K:\varphi\longmapsto\mathcal K\varphi,\)
 avec
@@ -910,7 +895,7 @@ On considère à nouveau la suite \(\left(\psi^{(n)}\right)_{n\in\mathbb N}\) en
 \[\psi^{(n+1)} = g + A\psi^{(n)}\]
 
 avec \( \qquad g = h + \mathcal{K}q \qquad A =\mathcal{K}\Sigma_pP \). Supposons maintenant que 
-\[\psi^{in}\ge 0  \qquad \psi^b\ge 0  \qquad q\ge 0  \qquad \Sigma_p\ge 0  \qquad \Sigma_p\ge 0  \qquad \]
+\[\psi^{in}\ge 0, \qquad \psi^b\ge 0, \qquad q\ge 0, \qquad \Sigma_t\ge 0, \qquad \Sigma_p\ge 0.\]
 Alors 
 \begin{itemize}
     \item \(h \ge 0\) d'après sa forme explicite en tant que solution de l'équation homogène
@@ -961,49 +946,54 @@ Posons \(X = \Omega \times [-1,1]\). On considère la norme \(L^2\) sur \(X\):
 \[||\psi||_X^2 = \int_{-L}^L\!\int_{-1}^1 |\psi(t,x,\mu)|^2\,d\mu dx\]
 Et de même les normes sur les bords entrant et sortant sont respectivement : 
 \begin{align*}
-    ||\psi||_{\Gamma^+}^2 = \int_{-1}^0 |\mu||\psi(t,-L,\mu)|^2\,d\mu + \int_0^1 \mu|\psi(t,L,\mu)|^2\,d\mu dx \\
-    ||\psi||_{\Gamma^-}^2 = \int_{-1}^0 |\mu||\psi(t,L,\mu)|^2\,d\mu + \int_0^1 \mu|\psi(t,-L,\mu)|^2\,d\mu dx
+    ||\psi||_{\Gamma^+}^2 &= \int_{-1}^0 |\mu||\psi(t,-L,\mu)|^2\,d\mu + \int_0^1 \mu|\psi(t,L,\mu)|^2\,d\mu, \\
+    ||\psi||_{\Gamma^-}^2 &= \int_{-1}^0 |\mu||\psi(t,L,\mu)|^2\,d\mu + \int_0^1 \mu|\psi(t,-L,\mu)|^2\,d\mu.
 \end{align*}
 
-
-On multiplie par \(\psi\) et intègre sur \(X\). On obtient 
+Dans toute cette section, on suppose que les données sont suffisamment régulières et compatibles pour que la solution soit régulière en temps. On admet donc que la fonction d'énergie
 \[
-\dfrac1{v_0}\int_X \psi\partial_t\psi + \int_X \mu\psi\partial_x\psi + \int_X \Sigma_t|\psi|^2 = 
-\int_X \Sigma_p(P\psi)\psi + \int_X\psi q  
+E(t):=\|\psi(t)\|_X^2
 \]
-Analysons terme à terme 
-\begin{itemize}
-    \item terme de temporel : \(\dfrac1{v_0}\int_X \psi\partial_t\psi = \dfrac1{2v_0} \dfrac{d}{dt}\left(\int_X |\psi|^2 \right) = \dfrac1{2v_0} \dfrac{d}{dt}||\psi||_X^2 \)
-    \item terme de transport : par intégration par partie en \(x\), 
-    \[
-    \int_X \mu\psi\partial_x\psi = \frac12 \int_{-1}^1\mu(|\psi(t,L,\mu)| - |\psi(t,-L,\mu)|) \,d\mu = \frac12||\psi||_{\Gamma^+}^2 - \frac12||\psi^b||_{\Gamma^-}^2
-    \]
-    \item terme de moyenne angulaire : Dans \(L^2([-1,1])\), \(P\) est un projecteur orthogonal. Par conséquent, \[(P\psi,\psi)_{\mu} = (P\psi,P\psi+(I-P)\psi)_{\mu}= (P\psi,P\psi)_{\mu}=||P\psi||_X^2 \]
-    Et puisque \(\Sigma_p\) ne dépend que de \(x\), 
-    \[\int_X \Sigma_p(P\psi)\psi \le  ||\Sigma_p||_X^2 ||P\psi||_X^2 \le ||\Sigma_p||_X^2 ||\psi||_X^2 \]
-    \item terme d'atténuation : on considère \(\Sigma_t\) ne dépend que de \(x\) donc
-    \[ \int_X \Sigma_t|\psi|^2 =  \int_X \Sigma_t|P\psi|^2 +\int_X \Sigma_t|(I-P)\psi|^2 \]
-    \item terme de source externe: on garde \((q,\psi)_X\)
-\end{itemize}
+est continue, et même absolument continue sur tout intervalle de temps borné. Cette hypothèse permet de dériver $E$ presque partout et d'appliquer le lemme de Grönwall. L'étude complète de cette régularité pour des données peu régulières relève d'une théorie des solutions faibles qui dépasse le cadre retenu ici. Les estimations d'énergie pour des solutions régulières sont présentées dans \cite[chap.~2, section~2.5]{Allaire2018}.
 
-Finalement puisque la norme sur le bord sortant est positive, on a
-
+On multiplie l'équation par \(\psi\), puis on intègre sur $X$. Pour une solution suffisamment régulière, une intégration par parties en $x$ donne
+\[
+\int_X\mu\psi\partial_x\psi
+=\frac12\|\psi\|_{\Gamma^+}^2
+-\frac12\|\psi^b\|_{\Gamma^-}^2.
+\]
+Par ailleurs, $P$ étant le projecteur orthogonal sur les fonctions isotropes dans $L^2(X)$ et les coefficients ne dépendant pas de $\mu$,
+\[
+\int_X\Sigma_p(P\psi)\psi=\int_X\Sigma_p|P\psi|^2,
+\qquad
+\int_X\Sigma_t|\psi|^2
+=\int_X\Sigma_t|P\psi|^2+\int_X\Sigma_t|(I-P)\psi|^2.
+\]
+On obtient donc l'identité d'énergie
 \begin{equation}
-    \dfrac1{2v_0} \dfrac{d}{dt}||\psi||_X^2  = (||\psi||_{\Gamma^-}^2 - \frac12||\psi^b||_{\Gamma^+}^2) + (q,\psi)_X -\int_X \Sigma_t|(I-P)\psi|^2 - \int_X( \Sigma_t-\Sigma_p)|P\psi|^2 \\
+\begin{aligned}
+\frac1{2v_0}\frac{d}{dt}\|\psi\|_X^2
++\frac12\|\psi\|_{\Gamma^+}^2
++\int_X\Sigma_t|(I-P)\psi|^2
++\int_X(\Sigma_t-\Sigma_p)|P\psi|^2 \\
+=\frac12\|\psi^b\|_{\Gamma^-}^2+(q,\psi)_X.
+\end{aligned}
+\label{eq:energie-transport}
 \end{equation}
-
-L'interprétation physique est évidente : la contribution énergétique des bords est la différence entre entrée et sortie des bords. La source externe contribue toujours positivement à l'énergie, tandis que le terme d'atténuation toujours négativement.\\
-La contribution du terme de collision dépendant de la partie isotrope de \(\psi\) dépend du signe de 
+Cette identité exprime exactement le bilan entre l'énergie injectée par le bord entrant et la source volumique, l'énergie évacuée au bord sortant et la dissipation due aux collisions. Le terme $(q,\psi)_X$ n'a pas de signe en général; il doit donc être estimé lorsque l'on cherche une majoration a priori. Quant à la contribution isotrope des collisions, son signe dépend de
 \[ \Sigma_t - \Sigma_p = \Sigma_c + (1-\nu)\Sigma_f\]
-qui décrit naturellement l'équilibre entre la destruction de neutrons par collisions et la production par fission. 
+qui décrit naturellement l'équilibre entre la destruction de neutrons par collisions et la production par fission. Cette méthode d'estimation est celle utilisée pour le problème de transport aux limites dans \cite[chap.~2, section~2.5 et chap.~3, section~3.2.2]{Allaire2018}.
 
 \subsubsection{Cas dissipatif}
 Dans le réflecteur il n'y a pas de fission donc \(\Sigma_f = 0\) et directement \(\Sigma_t-\Sigma_p = \Sigma_c \ge 0\). Faisons ici l'hypothèse, dite de système dissipatif que \(\Sigma_t-\Sigma_p \ge 0\) dans tout le réacteur. \\
-Dans ce cas, sans source externe ou flux entrant (\(\psi^b=q=0\)), (19) donne 
+Dans ce cas, sans source externe ni flux entrant (\(\psi^b=q=0\)), \eqref{eq:energie-transport} donne
 \[
- \dfrac1{2v_0} \dfrac{d}{dt}||\psi||_X^2  =  - \frac12||\psi^b||_{\Gamma^+}^2 -\int_X \Sigma_t|(I-P)\psi|^2 - \int_X( \Sigma_t-\Sigma_p)|P\psi|^2 \le 0
- \]
- d'où en intégrant en temps sur \([0,t]\) on obtient 
+ \frac1{2v_0}\frac{d}{dt}\|\psi\|_X^2
++\frac12\|\psi\|_{\Gamma^+}^2
++\int_X\Sigma_t|(I-P)\psi|^2
++\int_X(\Sigma_t-\Sigma_p)|P\psi|^2=0.
+\]
+Tous les termes autres que la dérivée temporelle sont positifs; en intégrant sur $[0,t]$, on obtient
  \begin{equation}
      ||\psi(t)||_X \le ||\psi^{in}||_X
  \end{equation}
@@ -1017,15 +1007,47 @@ Posons
 tel que  
 \[ \int_X( \Sigma_t-\Sigma_p)|P\psi|^2 \ge -\alpha||P\psi||^2_X \ge -\alpha||\psi||^2_X\]
  
-Pour le terme de source, l'inégalité de Young appliquée à \(||q||_X^2 ||,\psi||_X^2\), \(\forall \epsilon >0\),donne 
-\[ \int_X\psi q  \le ||q||_X^2 ||\psi||_X^2 \le \frac{\epsilon}{2}||\psi||_X^2 + \frac{1}{2\epsilon}||q||_X^2\]
-On arrive à la majoration 
+Pour le terme source, l'inégalité de Cauchy--Schwarz puis l'inégalité de Young donnent, pour tout $\eta>0$,
+\[
+(q,\psi)_X\leq \|q\|_X\|\psi\|_X
+\leq \frac1{2\eta}\|q\|_X^2+\frac\eta2\|\psi\|_X^2.
+\]
+En supprimant les termes positifs de \eqref{eq:energie-transport}, il vient
 \begin{equation}
-    \dfrac{d}{dt}||\psi(t)||_X^2 \le v_0||\psi^b(t)||_{\Gamma^-}^2 + (2v_0+\varepsilon)||\psi(t)||_X^2 + \frac{v_0}{\epsilon}||q(t)||_X^2
+\frac{d}{dt}\|\psi(t)\|_X^2
+\leq v_0\|\psi^b(t)\|_{\Gamma^-}^2
++v_0(2\alpha+\eta)\|\psi(t)\|_X^2
++\frac{v_0}{\eta}\|q(t)\|_X^2.
+\label{eq:energie-gronwall}
 \end{equation}
+Pour conclure, on utilise le lemme de Grönwall sous la forme suivante.
 
-\bigskip
-\textit{Finir preuve d'estimation énergétique en vérifiant les hypothèse nécessaires pour appliquer gronwall}
+\begin{lemma}[Grönwall]
+Soient $u\geq0$ une fonction absolument continue sur $[0,T]$, $a\geq0$ une constante et $b\in L^1(0,T)$. Si, pour presque tout $t\in[0,T]$,
+\[
+u'(t)\leq a\,u(t)+b(t),
+\]
+alors, pour tout $t\in[0,T]$,
+\[
+u(t)\leq e^{at}\left(u(0)+\int_0^t e^{-as}b(s)\,ds\right).
+\]
+\end{lemma}
+
+On applique ce résultat à $u(t)=\|\psi(t)\|_X^2$, avec
+\[
+a=v_0(2\alpha+\eta),
+\qquad
+b(t)=v_0\|\psi^b(t)\|_{\Gamma^-}^2+\frac{v_0}{\eta}\|q(t)\|_X^2.
+\]
+Si $q\in L^2(0,T;X)$ et $\psi^b\in L^2(0,T;\Gamma^-)$, alors $b\in L^1(0,T)$. En posant $C=v_0(2\alpha+\eta)$, le lemme donne, pour tout $t\in[0,T]$,
+\begin{equation}
+\|\psi(t)\|_X^2\leq e^{Ct}\left(
+\|\psi^{in}\|_X^2
++v_0\int_0^t e^{-Cs}\left[
+\|\psi^b(s)\|_{\Gamma^-}^2+\frac1\eta\|q(s)\|_X^2
+\right]ds\right).
+\end{equation}
+Cette estimation fournit en particulier un contrôle uniforme de la solution sur tout intervalle de temps borné.
 
 \newpage
 
@@ -1034,7 +1056,7 @@ On arrive à la majoration
 L'équation de transport décrit la répartition des neutrons dans l'espace et dans l'ensemble des directions de déplacement. Cette description est précise mais coûteuse : l'espace de phases considéré englobe le temps, la position et la vitesse. \\
 
 Dans un milieu fortement diffusant (en un sens qu'on définira plus loin), un neutron change de direction un grand nombre de fois à l'échelle macroscopique.\\
-On s'attend alors à ce que la distribution angulaire devienne presque isotrope et qu'une description faisant intervenir seulement la densité neutronique suffise 
+On s'attend alors à ce que la distribution angulaire devienne presque isotrope et qu'une description faisant intervenir seulement la densité neutronique suffise. La mise à l'échelle et le développement formel suivis ici reprennent le chapitre~4 de \textcite{Allaire2018}. La justification rigoureuse de cette limite, notamment en présence d'un bord, demande toutefois des estimations uniformes et l'étude de couches limites; on renvoie sur ce point à \textcite{Bardos1984}.
 \subsection{Redimensionnement }
 \subsubsection{Libre parcours moyen}
 Considérons l'équation de transport libre en milieu homogène sans source, dans lequel la section efficace macroscopique totale est \(\Sigma_t\) est constante. Alors par 1.2 la densité vérifie 
@@ -1099,7 +1121,7 @@ et alors la densité adimensionnée
 
 est solution de 
 \begin{equation}
-    \frac{\varepsilon}{v_0}\partial_t\psi^{\varepsilon} + \mu\partial_x\psi^{\varepsilon} + \frac{\sigma_t}{\varepsilon}(I-P)\psi^{\varepsilon} = \varepsilon((\nu-1)f -c)P\psi^{\varepsilon} + q \\
+    \varepsilon\partial_t\psi^{\varepsilon} + \mu\partial_x\psi^{\varepsilon} + \frac{\sigma_t}{\varepsilon}(I-P)\psi^{\varepsilon} = \varepsilon((\nu-1)f -c)P\psi^{\varepsilon} + \varepsilon q.
 \end{equation}
 
 où l'on a multiplié par \(L\) et, par abus de notation, pour toute les grandeurs concernées, simplifié \(\hat{X} \to X\).
@@ -1146,13 +1168,13 @@ L'opérateur \((I-P)\) n'est inversible que sur son image \(\operatorname{Im}(I-
 Ce qui assure l'existence de \(\psi_1\), que l'on peut lui même décomposer en 
 \begin{align*}
     \psi_1 &= P\psi_1 + (I-P)\psi_1\\
-    &= \rho_1 - \mu\partial_x\rho_0
+    &= \rho_1 - \frac{\mu}{\sigma_t}\partial_x\rho_0.
 \end{align*}
 
 \textit{Remarque} : À ce stade on peut obtenir une première approximation du courant neutronique \(J^{\varepsilon}\) associé à \(\psi^{\varepsilon} = \psi_0 + \varepsilon\psi_1 + O(\varepsilon^2)\) :
 \begin{align*}
     \frac12 J^{\varepsilon} &= P(\mu\psi_0) + \varepsilon P(\mu\psi_1) + O(\varepsilon^2) \\
-    &= 0 + P(\mu\rho_1) + \varepsilon P(\mu(I-P)\psi_1) +  O(\varepsilon^2) \\
+    &= 0 + \varepsilon P(\mu\rho_1) + \varepsilon P(\mu(I-P)\psi_1) +  O(\varepsilon^2) \\
     &= -\dfrac{\varepsilon}{2\sigma_t}\partial_x\rho_0 \int_{-1}^1 \mu^2\,d\mu+  O(\varepsilon^2)\\
 \end{align*}
 En prenant \(\phi_0 = 2\rho_0\) on obtient finalement 
@@ -1160,47 +1182,59 @@ En prenant \(\phi_0 = 2\rho_0\) on obtient finalement
 C'est la loi de Fick à l'ordre dominant !
 
 \subsubsection{Ordre \(\varepsilon\)}
-L'injection de la série formelle donne 
+À l'ordre suivant, l'application de $P$ élimine le terme de collision et fournit la condition de compatibilité
 \[
-\varepsilon\partial_t\psi_0 + \varepsilon\mu\partial_x\psi_1 + \mu\partial_x\psi_0 + \sigma_t(I-P)(\dfrac{1}{\varepsilon}\psi_0 + \psi_1 +\psi_2) = \varepsilon\kappa P\psi_0 + \varepsilon q 
+\partial_t\rho_0+\partial_xP(\mu\psi_1)=\kappa\rho_0+Q,
+\qquad
+\kappa=(\nu-1)f-c,
+\qquad Q=Pq.
 \]
-On applique \(P\) à cette équation en tenant compte des résultats des ordres supérieurs pour obtenir 
-\begin{align*}
-    \varepsilon\partial_t\rho_0 + \varepsilon \partial_xP(\mu\psi_1) = \varepsilon\kappa\rho_0 + \varepsilon Q \\
-    \partial_t\rho_0 - \frac{1}{\varepsilon}\partial_x(J^{\varepsilon}) = \kappa\rho_0 + Q
-\end{align*}
-Soit au final 
+Or
+\[
+P(\mu\psi_1)
+=-\frac{1}{2\sigma_t}\partial_x\rho_0\int_{-1}^1\mu^2\,d\mu
+=-\frac{1}{3\sigma_t}\partial_x\rho_0.
+\]
+En revenant au flux scalaire $\phi_0=2\rho_0$, on obtient finalement
 \begin{equation}
-    \partial_t\phi_0 - \partial_x\left(\frac{1}{3\sigma_t(x)}\partial_x\phi_0\right) + (c(x)-(1-\nu(x)f(x))\phi_0 = Q
+    \partial_t\phi_0 - \partial_x\left(\frac{1}{3\sigma_t(x)}\partial_x\phi_0\right)
+    +\bigl(c(x)+(1-\nu(x))f(x)\bigr)\phi_0 = 2Q.
+    \label{eq:limite-diffusion}
 \end{equation}
 
-On obtient une équation de diffusion comme condition de compatibilité de notre série de Hilbert avec l'équation de transport de départ ! Dans un milieu purement diffusant, sans capture, fission ou source externe on pose le coefficient de diffusion 
+On obtient ainsi l'équation de diffusion comme condition de compatibilité du développement de Hilbert avec l'équation de transport de départ. Dans un milieu purement diffusant, sans capture, fission ni source externe, on pose le coefficient de diffusion
 \begin{equation}
     D(x) = \frac{1}{3\sigma_t(x)} 
 \end{equation}
 On retrouve l'équation de diffusion canonique 
 \begin{equation}
-    \partial_t\phi_0 + \partial_x\left(D(x)\partial_x\phi_0\right) = 0
+    \partial_t\phi_0 - \partial_x\left(D(x)\partial_x\phi_0\right) = 0.
 \end{equation}
+Le développement précédent reste formel : la convergence de $\psi^\varepsilon$ vers $\phi_0/2$ exige des hypothèses précises sur les coefficients et les données, ainsi qu'un traitement spécifique du voisinage du bord \cite[chap.~4, sections~4.2--4.3]{Allaire2018}.
 
 \subsection{Conditions aux limites du modèle de diffusion}
+La condition de vide du modèle de transport prescrit le flux angulaire entrant, alors que l'équation de diffusion ne conserve plus la variable $\mu$. Elle ne se transforme donc pas directement en une condition de Dirichlet imposée au même point géométrique. Une analyse de couche limite conduit, suivant le niveau d'approximation retenu, à une condition de Marshak ou à une condition de flux nul sur une frontière extrapolée \cite[chap.~4, section~4.3]{Allaire2018,Bardos1984}. Dans la suite, afin de conserver un modèle unidimensionnel simple, on adoptera la fermeture homogène
+\[
+\phi(t,-L)=\phi(t,L)=0.
+\]
+Cette condition doit être comprise comme une approximation de bord absorbant pour le modèle diffusif, et non comme la traduction exacte de la condition entrante du problème de transport.
 
 \subsection{Application au cœur-réflecteur}
-L'équation de diffusion nous offre la possibilité de d'obtenir une une modélisation simplifiée dans le cas de plaque infinie cœur-réflecteur. Considérons maintenant que chaque milieu est homogène avec les coefficients de diffusion
+L'équation de diffusion offre une modélisation simplifiée de la plaque infinie cœur--réflecteur. Considérons maintenant que chaque milieu est homogène avec les coefficients de diffusion
 \[
 D_c, \Sigma_{a,c}, \Sigma_f \qquad D_r, \Sigma_{a,r}
 \]
 respectivement dans le cœur et réflecteur. On supposera aucune source externe. Dans le cœur correspondant au domaine spatial \(\Omega_a = [-a,a]\) on a  
 \begin{equation}
-    \partial_t\phi_c -D_c\partial_{xx}\phi_c + \Sigma_{a,c}\phi_c = \nu\Sigma_f\phi_c
+    \frac1{v_0}\partial_t\phi_c -D_c\partial_{xx}\phi_c + \Sigma_{a,c}\phi_c = \nu\Sigma_f\phi_c
 \end{equation}
 
 \begin{equation}
-    \partial_t\phi_r -D_r\partial_{xx}\phi_c + \Sigma_{a,r}\phi_c = \nu\Sigma_f\phi_r
+    \frac1{v_0}\partial_t\phi_r-D_r\partial_{xx}\phi_r+\Sigma_{a,r}\phi_r=0.
 \end{equation}
 
 \subsubsection{Conditions aux interfaces}
-ON impose la continuité du flux aux interfaces cœur-réflecteur : 
+On impose la continuité du flux aux interfaces cœur--réflecteur :
 \[
 \phi_c(t,\pm a) = \phi_r(t,\pm a)
 \]
@@ -1209,7 +1243,7 @@ Ainsi que la continuité du courant neutronique
 D_c\partial_x\phi_c(t,\pm a) = D_r\partial_x\phi_r(\pm a)
 \]
 
-Aux bord du système on peut supposer des conditions de Dirichlet qui correspondent à un bord absorbant :
+Aux bords du système, on utilise la condition de Dirichlet homogène introduite ci-dessus :
 \[
 \phi(t,-L) = \phi(t,L) = 0
 \]
@@ -1220,7 +1254,7 @@ Le problème étant symétrique par rapport à l'origine on a, pour $\phi$ solut
     &= \partial_t\phi_c(t,-x) -D(x)\partial_{xx}\phi(t,-x) + (\Sigma_a(x)-\nu\Sigma_f(x))\phi(t,-x) = 0
 \end{align*}
 
-Ainsi supposant l'unicité de la solution du problème au bord, on a \(\phi(t,-x)=\phi(t,x)\).La solution étant parie en espace on a donc notamment 
+Ainsi, en supposant l'unicité de la solution du problème au bord, on a \(\phi(t,-x)=\phi(t,x)\). La solution étant paire en espace, on a donc notamment
 \[
 \partial_x\phi(t,0) = 0
 \]
@@ -1243,7 +1277,7 @@ Cette réduction sera particulièrement utile lors de la résolution numérique 
 \section{Étude de criticité}
 L'objectif de cette partie est d'étudier l'équilibre entre la production de neutrons par fission et les pertes par absorption et par fuite dans le réacteur. Cette étude s'avère cruciale dans l'optique d'opérer un réacteur stable en maximisant la production d'énergie de la centrale. 
 En effet si les pertes dominent globalement la production par fission, la population de neutrons décroît rapidement et la réaction de fission ne s'auto-entretient plus. À l'inverse si la fission domine les pertes, on risque un croissance incontrôlée de la population de neutron et un emballement du réacteur dont on peut facilement imaginer les conséquences. 
-On montrera dans cette partie que ce compromis entre production et pertes dans le réacteur peut être décrit par un unique nombre 
+On montrera dans cette partie que ce compromis entre production et pertes peut être décrit par un unique nombre, le facteur de multiplication effectif $\keff$. L'analyse spectrale et variationnelle qui suit s'appuie sur le chapitre~6 de \textcite{Allaire2018}.
 
 
 \subsection{Réacteur nu et naissance de criticité}
@@ -1265,12 +1299,11 @@ En posant l'opérateur linéaire $A: u \mapsto -v_0Du'' + v_0(\Sigma_a -\nu\Sigm
     Au = \lambda u
 \end{equation}
 
-On sait que les fonctions propres normalisées du Laplacien de Dirichlet sur $[-a,a]$ sont les 
+L'opérateur $-\partial_{xx}$ de domaine $H^2(-a,a)\cap H_0^1(-a,a)$ est auto-adjoint, positif et à résolvante compacte dans $L^2(-a,a)$. Le théorème spectral assure donc l'existence d'une base orthonormée de fonctions propres \cite[chap.~6, section~6.3]{Allaire2018}; voir aussi \textcite{Brezis2011}. Dans le cas présent, ces fonctions et leurs valeurs propres sont explicitement
 \begin{align*}
-    &\varphi_n:x\mapsto \frac{1}{\sqrt{a}}\sin\left(\frac{n\pi}{2a}(x+a)\right) \quad n\in \mathbb{Z}\\
-    &\mu_n = \left(\frac{n\pi}{2a}\right)^2
+    &\varphi_n:x\mapsto \frac{1}{\sqrt{a}}\sin\left(\frac{n\pi}{2a}(x+a)\right), \quad n\geq1,\\
+    &\mu_n = \left(\frac{n\pi}{2a}\right)^2.
 \end{align*}
-On note que $\forall n\in\mathbb{N}$, $\varphi_n$ et $\varphi_{-n}$ sont fonctions propres pour la même valeur propre $\mu_n$. On admet que le Laplacien est un opérateur auto-adjoint compact dans $L^2(-a,a)$ pour son produit scalaire canonique et qu'en conséquence les $\varphi_n$ constituent une base orthonormée de $L^2(-a,a)$.\\
 Naturellement ce sont aussi des fonctions propres de $A$ puisqu'on considère les coefficients constants dans le réacteur homogène. On peut alors supposer la décomposition  
 \begin{equation}
     u(x) = \sum_{n=1}^{+\infty}c_n\varphi_n(x)
@@ -1286,7 +1319,7 @@ Sous hypothèses de convergence, on dérive par rapport au temps pour obtenir av
     \phi'(t,x) = \sum_{n=1}^{+\infty}A_n'(t)\varphi_n(x) = A\phi = \sum_{n=1}^{+\infty}A_n(t)v_0(\nu\Sigma_f-\Sigma_a - D\mu_n)\varphi_n(x)
 \end{equation*}
 
-Pr unicité de la décomposition dans la base des $\varphi_n$ on obtient $\forall n$ l'équation différentielle 
+Par unicité de la décomposition dans la base des $\varphi_n$, on obtient pour tout $n$ l'équation différentielle
 \[
 A_n'(t) = -\lambda_nA_n(t)
 \]
@@ -1295,12 +1328,13 @@ et $A_n(t)= A_n(0)e^{-\lambda_nt}$ avec bien sûr $\lambda_n = v_0(D\mu_n +\Sigm
     \phi(t,x) = \sum_{n=1}^{+\infty}A_n(0)e^{-\lambda_nt}\varphi_n(x) 
 \end{equation}
 
-L'expression explicite des $\mu_n$ assure que les $\lambda_n$ sont réels et décroissants. Le comportement temporel est donc entièrement déterminé par le signe du premier mode $\lambda_1$:
+L'expression explicite des $\mu_n$ assure que les $\lambda_n$ sont réels et strictement croissants. Lorsque $A_1(0)\neq0$, le comportement aux temps longs est donc déterminé par le signe du premier mode $\lambda_1$ :
 \begin{itemize}
-    \item si $\lambda_1>0$, la solution séparée tend aux temps long vers la fonction identiquement nulle
+    \item si $\lambda_1>0$, la solution tend vers la fonction identiquement nulle;
     \item si $\lambda_1 =0$, $\phi(t,x) \xrightarrow{t \to \infty} A_1(0)\varphi_1(x)$
-    \item si $\lambda_1 <0$ le mode premier au moins diverge aux temps longs
+    \item si $\lambda_1 <0$, le premier mode croît exponentiellement.
 \end{itemize}
+Si $A_1(0)=0$, le même raisonnement s'applique au premier coefficient modal non nul.
 
 Par cette méthode des variables séparées on exhibe déjà que le comportement temporel peut être décrit par le seul paramètre \(\lambda_1 = v_0(D\left(\frac{\pi}{2a}\right)^2 +\Sigma_a -\nu\Sigma_f)\)
 
@@ -1311,12 +1345,12 @@ On a montré que la solution à variables séparées est bornée et non nulle au
 \lambda_1 = 0 \iff D\left(\frac{\pi}{2a}\right)^2 +\Sigma_a -\nu\Sigma_f = 0 \iff a_c = \frac{\pi}{2}\sqrt{\frac{D}{\nu\Sigma_f - \Sigma_a}}
 \]
 
-On peut alors définir deux caractéristique du réacteur:
+On peut alors définir deux caractéristiques du réacteur :
 \begin{itemize}
-    \item le \emph{buckling géométrique} $B_m = \mu_1 = \left(\frac{\pi}{2a}\right)^2$ décrit ?
-    \item le \emph{buckling matériel} $B_m^2 = \frac{D}{\nu\Sigma_f - \Sigma_a}$ décrit ?
+    \item le \emph{buckling géométrique} $B_g^2=\mu_1=\left(\frac{\pi}{2a}\right)^2$, qui mesure les pertes par fuite imposées par la géométrie;
+    \item le \emph{buckling matériel} $B_m^2=\frac{\nu\Sigma_f-\Sigma_a}{D}$, qui mesure l'excès de production disponible dans le matériau.
 \end{itemize}
-Le réacteur est critique pour  $\nu\Sigma_f > \Sigma_a$ si 
+Le réacteur est critique pour $\nu\Sigma_f > \Sigma_a$ si
 \begin{equation}
     B_m^2 = B_g^2
 \end{equation}
@@ -1376,60 +1410,23 @@ Par intégration par partie sur l'intégrale du terme de convection on obtient, 
     a(u,v) = \frac1k b(u,v), \qquad \forall v\in V
 \end{equation}
 
-Supposons cette solution suffisamment régulière dans chaque milieu. On peut alors séparer l'intégration selon les domaines $\Omega_c=[-a,a]$ et $\Omega_r=\Omega\setminus\Omega_c$,
-\paragraph{Dans le cœur} 
-\begin{equation}
-      \int_{-a}^aD_cu'v' + \int_{-a}^a(\Sigma_{a,c}-\frac{\nu}{k}\Sigma_{f,c})u\,v =  [D_cu'v]_{-a}^a + \int_{-a}^a(-D_cu''\Sigma_{a,c}u-\frac{\nu}{k}\Sigma_{f,c}u)\,v
-\end{equation}
-
-\paragraph{Dans le réflecteur} 
-\begin{equation}
-      \int_{-L}^{-a}D_ru'v'+\int_{a}^LD_ru'v' + \int_{\Omega_r}^a(\Sigma_{a,r}-\frac{\nu}{k}\Sigma_{f,r})u\,v =  [D_cu'v]_{-L}^{-a} + [D_cu'v]_a^L+ \int_{\Omega_r}(-D_cu''\Sigma_au-\frac{\nu}{k}\Sigma_fu)\,v
-\end{equation}
-
-\medskip
-On applique la condition de trace nulle pour $v$ pour éliminer les termes contenant les facteurs $v(L)=v(-L)=0$ pour obtenir
+Supposons maintenant que $u$ soit de classe $H^2$ à l'intérieur de chacun des trois sous-domaines $(-L,-a)$, $(-a,a)$ et $(a,L)$. En intégrant par parties séparément sur ces intervalles, la formulation faible devient
 \begin{align*}
-    \int_{-a}^a(-D_cu''&+\Sigma_{a,c}u-\frac{\nu}{k}\Sigma_{f,c}u)\,v + \int_{\Omega_r}(-D_cu''+\Sigma_au-\frac{\nu}{k}\Sigma_fu)\,v \\
-    &+[D_ru'(-a^-)-D_cu'(-a^+)]v(-a)\\
-    &+[D_ru'(a^-)-D_cu'(a^+)]v(a)=0\\
+0={}&\int_{-L}^{L}\left[-(Du')'+\Sigma_a u-\frac1k\nu\Sigma_f u\right]v\,dx \\
+&+\bigl[D_ru'(-a^-)-D_cu'(-a^+)\bigr]v(-a)\\
+&+\bigl[D_cu'(a^-)-D_ru'(a^+)\bigr]v(a),
+\qquad \forall v\in V.
 \end{align*}
-
-\bigskip
-En choisissant $v\in H^1_0(-a,a)\subset H^1_0(-L,L)$, on obtient 
+En choisissant d'abord des fonctions test à support compact dans chacun des matériaux, on retrouve les équations fortes
 \[
- \int_{-a}^a(-D_cu''+\Sigma_{a,c}u-\frac{\nu}{k}\Sigma_{f,c}u)\,v=0 \qquad \forall v\in H^1_0(-a,a)
+-(Du')'+\Sigma_a u=\frac1k\nu\Sigma_f u
 \]
-ce qui impose  
-\[
--D_cu''+\Sigma_{a,c}u-\frac{\nu}{k}\Sigma_{f,c}u \qquad \text{sur} \quad [-a,a]
-\]
-
-de même en considérant $v$ à support compact dans $[-L,-a]$ puis dans $[-L,-a]$, on obtient
-\[
--D_ru''+\Sigma_{a,r}u-\frac{\nu}{k}\Sigma_{f,r}u \qquad \text{sur} \quad [-L,-a]\cup[a,L]
-\]
-
-Ayant annulé tous les termes intégraux, il reste que 
-\[
- [D_ru'(-a^-)-D_cu'(-a^+)]v(-a) +[D_ru'(a^-)-D_cu'(a^+)]v(a)=0 \qquad \forall v\in V
-\]
-Par des choix judicieux de $v$, il vient que 
-
+sur le cœur et sur les deux parties du réflecteur. Les valeurs $v(-a)$ et $v(a)$ pouvant ensuite être choisies indépendamment, les termes d'interface imposent la continuité du courant diffusif :
 \begin{align}
-    D_ru'(-a^-)&=D_cu'(-a^+) \\
-    D_ru'(a^-)&=D_cu'(a^+)
+D_ru'(-a^-)&=D_cu'(-a^+),\\
+D_cu'(a^-)&=D_ru'(a^+).
 \end{align}
-
-Enfin puisque  $H^1_0(-L,L) \hookrightarrow \mathcal{C}^0(-L,L)$, la solution $u$ est continue, d'où
-\begin{align}
-    u(L)&=u(-L)=0 \\
-    u(-a^-)&=u(-a^+)\\
-    u(a^-)&=u(a^+)
-\end{align}
-
-\bigskip
-\textit{Remarque:} On obtient donc les conditions parachutées en 3.4 comme conséquences naturelles du choix de $V$ pour la formulation faible du problème de criticité.
+Enfin, en dimension un, l'injection $H^1(-L,L)\hookrightarrow\mathcal C^0([-L,L])$ assure la continuité de $u$ aux interfaces, tandis que l'appartenance à $H_0^1(-L,L)$ impose $u(-L)=u(L)=0$. Les conditions de raccordement utilisées dans le modèle cœur--réflecteur sont donc des conséquences de la formulation faible et non des hypothèses supplémentaires. Cette démarche est celle de la formulation variationnelle du problème de diffusion critique présentée dans \cite[chap.~6, section~6.5.1]{Allaire2018}; les résultats de trace et d'injection de Sobolev utilisés ici sont rappelés dans \textcite{Brezis2011}.
 
 
 \subsubsection{Coercivité et théorème de Lax-Milgram}
@@ -1443,7 +1440,7 @@ Par l'inégalité de Cauchy-Schwarz, pour tout $u,v\in V$,
     &\le \bigl(\|D\|_{L^\infty} +\|\Sigma_a\|_{L^\infty}\bigr) \|u\|_V\|v\|_V. 
 \end{align*}
 
-La forme $a$ est donc bilinéaire, symétrique et continue sur $V\times V$. On peut suivre un raisonnement analogue our montrer que $b$ est également bilinéaire symétrique et continue sur $V\times V$. 
+La forme $a$ est donc bilinéaire, symétrique et continue sur $V\times V$. On peut suivre un raisonnement analogue pour montrer que $b$ est également bilinéaire, symétrique et continue sur $V\times V$.
 
 \medskip
 Rappelons à présent la notion de coercivité. 
@@ -1452,21 +1449,12 @@ Rappelons à présent la notion de coercivité.
     \[ a(v,v)\ge \alpha \|v\|_V^2, \qquad \forall v\in V. \] 
 \end{definition} 
 
-Dans notre cas, 
-\[ a(u,u) = \int_{-L}^{L} D(x)\,|u'(x)|^2\,dx + \int_{-L}^{L} \Sigma_a(x)\,u'(x)^2\,dx. \] 
-
-Supposons qu'il existe des constantes $D_{\min}>0$ et $\Sigma_{\min}>0$ telles que 
-\[ 
-D(x)\ge D_{\min}, \qquad \Sigma_a(x)\ge \Sigma_{\min}, \qquad \text{p.p. sur }(-L,L). 
-\] 
-Alors 
-\[ a(u,u) \ge D_{\min}\|u\|_{L^2}^2 + \Sigma_{\min}\|u'\|_{L^2}^2. \] 
-
-En posant 
-\[ \alpha=\min(D_{\min},\Sigma_{\min}), \] 
-on obtient 
-\[ a(u,u)\ge \alpha \|u\|_V^2, \qquad \forall u\in V, \] 
-ce qui montre que la forme $a$ est coercive sur $V$. 
+Dans notre cas,
+\[
+a(u,u)=\int_{-L}^{L}D(x)|u'(x)|^2\,dx
++\int_{-L}^{L}\Sigma_a(x)|u(x)|^2\,dx.
+\]
+On suppose $D(x)\geq D_{\min}>0$ et $\Sigma_a(x)\geq0$ presque partout. Le seul terme diffusif suffit alors à établir la coercivité grâce à l'inégalité de Poincaré.
 
 \begin{proposition}[Inégalité de Poincaré] 
 Il existe une constante $C_P>0$ telle que, pour tout $u\in H_0^1(-L,L)$, 
@@ -1474,10 +1462,15 @@ Il existe une constante $C_P>0$ telle que, pour tout $u\in H_0^1(-L,L)$,
 \end{proposition}
 
 
-Lorsque $V=H_0^1(-L,L)$, l'inégalité de Poincaré assure l'existence d'une constante $C_P>0$ telle que 
+Lorsque $V=H_0^1(-L,L)$, l'inégalité de Poincaré assure l'existence d'une constante $C_P>0$ telle que
 \[ \|u\|_{L^2}\le C_P \|u'\|_{L^2}, \qquad \forall u\in H_0^1(-L,L). \] 
-La norme $\|u\|_V$ est alors équivalente à la semi-norme $\|u'\|_{L^2}$, ce qui permet également d'établir la coercivité à partir du seul terme diffusif dès que $\Sigma_a$ est uniformément minorée par une constante strictement positive. \\
-La coercivité de $a$ va nous permettre de d'exhiber l'existence d'une solution au problème faible de criticité, grâce au résultat suivant :  
+Il en résulte
+\[
+a(u,u)\geq D_{\min}\|u'\|_{L^2}^2
+\geq \frac{D_{\min}}{1+C_P^2}\|u\|_V^2,
+\]
+ce qui montre que $a$ est coercive sans exiger que $\Sigma_a$ soit strictement positive. L'inégalité de Poincaré et le théorème de Lax--Milgram utilisés ici sont établis dans \textcite{Brezis2011}.
+La coercivité de $a$ permet de construire l'opérateur associé au problème faible de criticité grâce au résultat suivant :
 
 \begin{theorem}[Lax-Milgram] 
     Soit $V$ un espace de Hilbert, $a : V\times V \to \mathbb{R}$ une forme bilinéaire continue et coercive, et $\ell : V \to \mathbb{R}$ une forme linéaire continue. 
@@ -1498,26 +1491,26 @@ Et le théorème de Lax-Milgram assure l'existence d'un opérateur continu $T: V
 \end{equation}
 
 \begin{proposition}
-    L'opérateur T est linéaire, auto-adjoint, compact et positif dans $V$ muni du produit scalaire $a$.
+    L'opérateur $T$ est linéaire, auto-adjoint, compact et positif au sens quadratique dans $V$ muni du produit scalaire $a$.
 \end{proposition}
 \textbf{En effet,} L'inégalité de Poincaré assure que $a$ est une forme bilinéaire symétrique positive définie, i.e un produit scalaire. \\
-Alors $T$ est naturellement linéaire par (48), et $\forall u,v \in V$,
+Alors $T$ est naturellement linéaire par sa définition, et $\forall u,v \in V$,
 \[
 a(Tu,v) = b(u,v) = b(v,u) = a(Tv,u) = a(u,Tv)
 \]
-et 
+et
 \[
 a(Tu,u) = b(u,u) = \int_{\Omega} \nu\Sigma_fu^2 \ge 0 
 \]
-d'où $T$ est positif. Enfin considérons une suite bornée $(\tilde{u}_n)_n$ de V : $||\tilde{u}_n||_V \le M \quad\forall n$ alors puisque l'injection $V \hookrightarrow L^2(\Omega)$  est compacte, il existe une sous-suite de $(\tilde{u}_n)_n$, notée $(u_n)_n$ qui converge fortement dans $L^(\Omega)$ vers une limite $u$.\\
+d'où $T$ est positif au sens quadratique. Enfin, considérons une suite bornée $(\tilde{u}_n)_n$ de $V$. Puisque l'injection $V\hookrightarrow L^2(\Omega)$ est compacte, il existe une sous-suite, encore notée $(u_n)_n$, qui converge fortement dans $L^2(\Omega)$ vers une limite $u$.
 On se donne alors $n,m \in \mathbb{N}$ et on note $v=Tu_n-Tu_m$
 \begin{align*}
     \alpha||Tu_n-Tu_m||^2_V &\le a(T(u_n-u_m),T(u_n-u_m)) = b(u_n-u_m,T(u_n-u_m))\\
     &\le ||\nu\Sigma_f||_\infty||u_n-u_m||_{L^2}||Tu_n-Tu_m||_{L^2}\\
-    &\le ||\nu\Sigma_f||_\infty||u_n-u_m||_V||Tu_n-Tu_m||_V
+    &\le C||\nu\Sigma_f||_\infty||u_n-u_m||_{L^2}||Tu_n-Tu_m||_V
 \end{align*}
 d'où pour $T(u_n - u_m) \neq 0$, $||Tu_n-Tu_m||_V \le \frac{C}{\alpha}\|u_n-u_m\|_{L^2} \to 0$
-La suite $(Tu_n)_n$ est donc de Cauchy donc convergente dans $V$ complet.
+La suite $(Tu_n)_n$ est donc de Cauchy, donc convergente dans $V$. Ainsi $T$ est compact. Cette factorisation par l'injection compacte $H_0^1(\Omega)\hookrightarrow L^2(\Omega)$ est standard pour les opérateurs elliptiques \cite{Brezis2011,Evans2010}.
 
 \bigskip
 Ces propriétés de $T$ nous permettent de reformuler le problème de criticité comme un nouveau problème aux valeurs propres.
@@ -1531,20 +1524,19 @@ si et seulement si le couple $(u,k)$ est solution de
 \begin{equation}
     Tu = ku
 \end{equation}
-Ce problème aux valeur propre va nous donner une nouvelle formulation de $\keff$ grâce au résultat suivant 
+Ce problème aux valeurs propres conduit à une nouvelle formulation de $\keff$. La relation $a(Tu,u)\geq0$ est la positivité au sens quadratique requise par le théorème spectral.
 
-\begin{theorem}[Krein-Rutman] 
-    Soit $H$ un espace de Hilbert réel et $T:H\to H$ un opérateur compact, auto-adjoint et positif, non identiquement nul. Alors le rayon spectral 
-    \[ r(T)=\sup\{|\lambda|,\ \lambda\in\sigma(T)\} \] 
-    est une valeur propre de $T$. De plus, il existe une fonction propre associée $u\neq 0$ telle que 
-    \[ Tu=r(T)u, \qquad et \qquad r(T)=\max_{\substack{v\in H\\v\neq 0}} \frac{(Tv,v)}{(v,v)}. \] 
-    En particulier, 
-    \[ r(T)>0. \] 
+\begin{theorem}[Théorème spectral compact]
+Soit $H$ un espace de Hilbert réel et $T:H\to H$ un opérateur compact, auto-adjoint et positif au sens quadratique. Si $T$ n'est pas nul, sa plus grande valeur propre $\lambda_1$ est strictement positive et
+\[
+\lambda_1=\max_{v\in H\setminus\{0\}}\frac{(Tv,v)_H}{(v,v)_H}.
+\]
+Toutes les valeurs propres non nulles sont réelles, positives et ne peuvent s'accumuler qu'en zéro.
 \end{theorem}
 
-Comme $T$ est compact, auto-adjoint et positif dans l'espace de Hilbert $(V,a)$, le théorème de Krein-Rutman s'applique. Il existe donc une valeur propre dominante 
-\[ \lambda_1=r(T)>0 \] 
-et une fonction propre associée $u_1\in V\setminus\{0\}$ telle que $Tu_1=\lambda_1u_1.$
+Comme $T$ est compact, auto-adjoint, positif au sens quadratique et non nul dans $(V,a)$, le théorème spectral donne une valeur propre dominante
+\[ \lambda_1=r(T)>0 \]
+et une fonction propre associée $u_1\in V\setminus\{0\}$ telle que $Tu_1=\lambda_1u_1$.
 Or le problème de criticité s'écrit
 \[ Tu=ku. \] 
 Par conséquent, les valeurs de $k$ admissibles sont exactement les valeurs propres de $T$. En particulier, la plus grande d'entre elles est donnée par 
@@ -1552,7 +1544,7 @@ Par conséquent, les valeurs de $k$ admissibles sont exactement les valeurs prop
 On obtient ainsi la caractérisation variationnelle 
 \[ k_{\mathrm{eff}} = \max_{\substack{u\in V\\u\neq 0}} \frac{(Tu,u)_a}{(u,u)_a}=\max_{u\in V,\ u\neq 0} \frac{a(Tu,u)}{a(u,u)}=\max_{\substack{u\in V\\u\neq 0}} \frac{b(u,u)}{a(u,u)} \]
 
-Enfin le théorème Krein-Rutman nous fournit également la précieuse information que la fonction propre associée à $\keff$ est positive.  
+Enfin, si $u\geq0$, alors le second membre $\nu\Sigma_fu$ de l'équation définissant $Tu$ est positif. Le principe du maximum elliptique permet donc de choisir la fonction propre fondamentale strictement positive dans $\Omega$ \cite{Evans2010}. Dans le cadre plus général d'opérateurs non symétriques, cette conclusion est fournie par le théorème de Krein--Rutman \cite{KreinRutman1948,Schaefer1974}; ce résultat n'est pas nécessaire pour la caractérisation variationnelle utilisée ici.
 
 \begin{proposition}[Monotonie de $k_{\mathrm{eff}}$] 
     La caractérisation variationnelle 
@@ -1579,9 +1571,9 @@ a_\varepsilon=a+\varepsilon \,\delta a, \qquad b_\varepsilon=b+\varepsilon \,\de
 \] 
 où $\varepsilon>0$ est un paramètre suffisamment petit. Le problème de criticité perturbé s'écrit alors \[ a_\varepsilon(u_\varepsilon,v) = \frac{1}{k_\varepsilon} b_\varepsilon(u_\varepsilon,v), 
 \qquad \forall v\in V. \] 
-On suppose que la fonction propre dominante est normalisée par $a(u,u)=1$. La relation de Rayleigh donne alors $k_{\mathrm{eff}}=b(u,u)$ En dérivant formellement cette relation par rapport à $\varepsilon$ au point $\varepsilon=0$, on obtient la formule de sensibilité du premier ordre 
+On suppose que la valeur propre dominante est simple, que la perturbation dépend différentiablement de $\varepsilon$ et que la fonction propre est normalisée par $a(u,u)=1$. La relation de Rayleigh donne alors $k_{\mathrm{eff}}=b(u,u)$. En dérivant au point $\varepsilon=0$, on obtient la formule de sensibilité du premier ordre
 \[  \delta k = \delta b(u,u) - \keff\,\delta a(u,u)  \] 
-où $u$ désigne la fonction propre fondamentale associée à $\keff$. Cette identité permet de quantifier directement l'effet d'une modification locale des paramètres du réacteur. 
+où $u$ désigne la fonction propre fondamentale associée à $\keff$. Cette identité permet de quantifier directement l'effet d'une modification locale des paramètres du réacteur; elle correspond à la formule de perturbation du problème critique donnée dans \cite[chap.~6, section~6.6.2]{Allaire2018}.
 
 \paragraph{Perturbation de la section efficace de fission.} Supposons 
 \[ \nu\Sigma_f \longmapsto \nu\Sigma_f+\varepsilon q(x), \] 
@@ -1617,8 +1609,8 @@ On reprend le cas du réacteur coeur-réflecteur à coefficients constants par m
 
 \[
 \begin{cases}
-D_c\partial_{xx}\phi_c + (\Sigma_{a,c}-\nu\Sigma_{f})\phi_c = 0, \quad &0 < x <a \\
-D_r\partial_{xx}\phi_r + \Sigma_{a,r}\phi_r = 0, \quad &a < x <L \\
+D_c\partial_{xx}\phi_c + \left(\dfrac{\nu\Sigma_f}{k}-\Sigma_{a,c}\right)\phi_c = 0, \quad &0 < x <a, \\
+D_r\partial_{xx}\phi_r - \Sigma_{a,r}\phi_r = 0, \quad &a < x <L, \\
 \qquad \partial_x\phi_c(0) =0, \\ 
 \quad \qquad \phi_c(a) = \phi_r(a)\\
 \quad D_c\partial_x\phi_c(a) =D_r\partial_x\phi_r(a)  \\ 
@@ -1637,11 +1629,11 @@ La condition $\phi_r(L)=0$ permet de simplifier
 \phi_r(x) = C_r\sinh(\alpha_r(L-x))
 \end{equation*}
 
-\paragraph{Dans le coeur} On note à nouveau $\kappa_c = \Sigma_{a,c}-\nu\Sigma_{f}$. Il existe trois régimes possibles selon le signe de \(\kappa_r\). 
+\paragraph{Dans le cœur} On note $\kappa_c(k)=\Sigma_{a,c}-\nu\Sigma_f/k$. Il existe trois régimes possibles selon le signe de $\kappa_c(k)$.
 \begin{itemize}
-    \item si $\kappa_c >0$, comme pour le réflecteur on pose  $\alpha_c := \sqrt{\frac{\kappa_c}{D_c}}$ et la solution est 
-\[ \phi_r(x) = A_c\cosh(\alpha_cx) + C_c\sinh(\alpha_cx) \]
-La condition de flux au centre donne $C_c = 0$ et on simplifie en $\phi_r(x)= A_c\cosh(\alpha_cx)$
+    \item si $\kappa_c(k)>0$, comme pour le réflecteur on pose $\alpha_c := \sqrt{\frac{\kappa_c(k)}{D_c}}$ et la solution est
+\[ \phi_c(x) = A_c\cosh(\alpha_cx) + C_c\sinh(\alpha_cx). \]
+La condition de flux au centre donne $C_c = 0$ et on simplifie en $\phi_c(x)= A_c\cosh(\alpha_cx)$.
 Seulement les conditions de continuité à la frontières donnent 
     \[
         \begin{cases}
@@ -1651,16 +1643,20 @@ Seulement les conditions de continuité à la frontières donnent
     \]
 Ce qui impose que $A_c$ et $C_r$ soient à la fois de même signe et de signes opposés, donc nuls. Physiquement ce résultat fait sens : sans source de neutrons et avec tout le réacteur absorbant, la population de neutron disparaît entièrement.
 
-    \item si $\kappa_c = 0$ la solution est linéaire sous la forme 
+    \item si $\kappa_c(k) = 0$ la solution est linéaire sous la forme
 \[\phi_c(x) = A_c + C_cx\]
 qui devient $\phi_c(x) = A_c$ constante sous la condition de flux nul au centre. Comme pour le cas précédent la continuité du courant neutronique à l'interface neutronique impose 
 \[0 = -D_rC_r\alpha_r\cosh(\alpha_r(L-a))\]
 ce qui donne une solution identiquement nulle dans tout le réacteur 
 
-    \item si $\kappa_c < 0$, qui est donc le seul cas non trivial, on pose $B_c^2(k) = -\frac{\frac{\nu}{k}\Sigma_f - \Sigma_a}{D_c}$ et la solution se met sous la forme 
-\[\phi_r(x) = A_c\cos(B_cx) + C_c\sin(B_cx)\]
+    \item si $\kappa_c(k) < 0$, qui est donc le seul cas non trivial, on pose
+\[
+B_c^2(k)=\frac{\frac{\nu}{k}\Sigma_f-\Sigma_{a,c}}{D_c}>0,
+\]
+et la solution se met sous la forme
+\[\phi_c(x) = A_c\cos(B_cx) + C_c\sin(B_cx)\]
 et sous la condition au centre,
-\[\phi_r(x) = A_c\cos(B_cx)\]
+\[\phi_c(x) = A_c\cos(B_cx).\]
 À l'interface cœur-réflecteur les conditions de continuité produisent le système 
 \[\begin{cases}
     A_c\cos(B_ca) = C_r\sinh(\alpha_r(L-a)) \\
@@ -1676,35 +1672,37 @@ Par quotient on obtient une équation transcendante définissant la criticité d
     
 
 \subsubsection{Effet du réflecteur}
-Notons $e_r = L-a$ l'épaisseur du réflecteur. Du point de vue du cœur le réflecteur impose seulement une condition de flux sortant en $a$ proportionnelle à 
-\[-\beta_r := D_r\alpha_r\coth(\alpha_re_r)\]
-On obtient par cette reformulation une équivalence entre l'effet du réflecteur et une \textit{condition de Robin} à l'interface: 
+Notons $e_r = L-a$ l'épaisseur du réflecteur et
 \[
-\boxed{\phi_c'(a) + \beta_r\phi_c(a) = 0}
+\beta_r(e_r):=D_r\alpha_r\coth(\alpha_re_r)>0.
+\]
+Comme $D_c\phi_c'(a)=D_r\phi_r'(a)$ et $\phi_c(a)=\phi_r(a)$, le réflecteur impose au cœur la condition de Robin
+\[
+\boxed{D_c\phi_c'(a)+\beta_r(e_r)\phi_c(a)=0}.
 \]
 
 Étudions les deux comportement asymptotiques de cette condition de flux en fonction de $e_r$
 
 \paragraph{Réflecteur mince}
-En $e_r \to 0$, on a \(\coth(\alpha_re_r) \sim \frac{1}{\alpha_re_r} \). Alors on a $\beta_r \sim -\frac{D_r}{e_r}$
+Quand $e_r \to 0$, on a \(\coth(\alpha_re_r) \sim \frac{1}{\alpha_re_r}\), donc $\beta_r(e_r) \sim \frac{D_r}{e_r}$ et
 \[
-\phi_c(a) \sim \frac{\phi_c'(a)}{D_r}e_r \to 0
+\phi_c(a)\sim-\frac{D_c}{D_r}e_r\phi_c'(a)\longrightarrow0.
 \]
 En supposant que le flux reste suffisamment régulier à la limite de réflecteur mince, la condition de Robin tend donc vers la condition de bord du réacteur nu :  $\phi_c(a) = 0$
 
 \paragraph{Réflecteur épais }
-En $e_r \to +\infty$, on a \(\coth(\alpha_re_r) \sim 1 \). Alors on a $\beta_r \to -D_r\alpha_r$
+Quand $e_r \to +\infty$, on a \(\coth(\alpha_re_r) \to 1\), donc $\beta_r(e_r)\to D_r\alpha_r$ et
 \[
-\phi_c(a) + D_r\alpha_r\phi_c'(a) \approx 0
+D_c\phi_c'(a)+D_r\alpha_r\phi_c(a)\approx0.
 \]
-La limite de réflecteur épais, l'effet du réflecteur sature et on une condition de flux maximal
+Dans la limite d'un réflecteur épais, son effet sature : augmenter encore son épaisseur ne modifie plus la condition effective imposée au cœur.
 
 \subsubsection{Effet du réflecteur sur la criticité}
 La caractérisation variationnelle de $\keff$ nous permet d'obtenir une démonstration très élégante de l'influence du réflecteur sur la criticité. En effet, Les espaces de fonctions considérés respectivement pour le cœur nu et pour le cœur-réflecteur sont 
 \[
 V_{\mathrm{nu}} = H^1_0(-a,a), \qquad V_{\mathrm{refl}} = H^1_0(-L,L)
 \]
-et il vient directement $V_{\mathrm{nu}} \subset V_{\mathrm{refl}}$. Alors on a 
+Par prolongement par zéro hors de $(-a,a)$, on identifie $V_{\mathrm{nu}}$ à un sous-espace de $V_{\mathrm{refl}}$. En prolongeant de même le coefficient de fission par zéro dans le réflecteur, il vient
 
 \begin{equation}
     \keff^{\mathrm{nu}} = \max_{u\in V_{\mathrm{nu}}\setminus\{0\}} \frac{b(u,u)}{a(u,u)}\le \max_{u\in V_{\mathrm{refl}}\setminus\{0\}} \frac{b(u,u)}{a(u,u)} =  \keff^{\mathrm{refl}}.
@@ -1721,16 +1719,15 @@ Et par le même raisonnement on montre que pour deux tailles de réflecteur $e_r
 
 \section{Annexe}
 
-Résultats à démontrer :
+Les résultats fonctionnels utilisés dans ce mémoire sont les suivants :
 \begin{itemize}
-    \item Opérateur compact auto-adjoint = base orthonormée de fonctions propres
-    \item En dimension 1, $H^1_0 \hookrightarrow \mathcal{C}^0$
-    \item Inégalité de Poincaré
-    \item Théorie des perturbations pour l'analyse de sensibilité de $\keff$ par rapport aux paramètres
+    \item le théorème spectral pour les opérateurs compacts auto-adjoints \cite{Brezis2011};
+    \item l'injection $H^1(-L,L)\hookrightarrow\mathcal C^0([-L,L])$ en dimension un \cite{Brezis2011};
+    \item l'inégalité de Poincaré et le théorème de Lax--Milgram \cite{Brezis2011,Evans2010};
+    \item le théorème de Krein--Rutman pour les opérateurs positifs compacts \cite{KreinRutman1948,Schaefer1974};
+    \item la théorie des perturbations appliquée à la sensibilité de $\keff$ \cite[chap.~6, section~6.6.2]{Allaire2018}.
 \end{itemize}
 
 \printbibliography
 
 \end{document}
-
-
