@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 import numpy as np
 
 
@@ -27,9 +26,9 @@ class SNQuadrature:
         n_half = nodes.size // 2
         if not np.all(nodes[:n_half] < 0.0) or not np.all(nodes[n_half:] > 0.0):
             raise ValueError("quadrature nodes must be negative then positive")
-        if not np.allclose(nodes[:n_half], -nodes[:n_half - 1 : -1]):
+        if not np.allclose(nodes[:n_half], -nodes[: n_half - 1 : -1]):
             raise ValueError("quadrature nodes must be symmetric about zero")
-        if not np.allclose(weights[:n_half], weights[:n_half - 1 : -1]):
+        if not np.allclose(weights[:n_half], weights[: n_half - 1 : -1]):
             raise ValueError("quadrature weights must be symmetric about zero")
 
         # Direct construction accepts array-like inputs and normalizes them

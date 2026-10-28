@@ -41,7 +41,7 @@ class UniformMesh1D:
 
     @classmethod
     def from_reactor(cls, reactor: Reactor1D, n_cells: int):
-        """Discretize a reactor with interfaces on mesh faces."""
+        """Generate mesh from Reactor1D class"""
         # Mesh spatial params
         n_cells = int(n_cells)
         h = 2 * reactor.half_width / n_cells

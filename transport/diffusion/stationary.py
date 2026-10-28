@@ -96,9 +96,7 @@ def solve_stationnary_source(mesh: UniformMesh1D, source: np.ndarray) -> np.ndar
 class StatDiffusionSolver:
     """Stationary diffusion solver with fission and a fixed source."""
 
-    def __init__(
-        self, boundary: DiffusionConditions = "extrapolated"
-    ) -> None:
+    def __init__(self, boundary: DiffusionConditions = "extrapolated") -> None:
         """Set diffusion boundary conditions."""
         self.boundary: DiffusionConditions = boundary
 
