@@ -23,4 +23,4 @@ wheels/
 *.blg
 *.fdb_latexmk
 *.fls
-*.ipynb
+dataload.ipynb
